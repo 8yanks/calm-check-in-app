@@ -4,6 +4,7 @@ import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { getCheckins, getLastResult, getPrefs, greetingFor, profileProgress, applyTheme, weeklyInsights, type CheckinRecord } from "@/lib/marge";
 import { Settings, BarChart3 } from "lucide-react";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/home")({
   head: () => ({ meta: [{ title: "Accueil — Marge" }] }),
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/home")({
 
 function Home() {
   const navigate = useNavigate();
+  const { session, loading: authLoading } = useRequireAuth();
   const [ready, setReady] = useState(false);
   const [checkinsCount, setCount] = useState(0);
   const [last, setLast] = useState<ReturnType<typeof getLastResult>>(null);
@@ -33,7 +35,7 @@ function Home() {
     setReady(true);
   }, [navigate]);
 
-  if (!ready) return <PageShell><div className="h-screen" /></PageShell>;
+  if (authLoading || !session || !ready) return <PageShell><div className="h-screen" /></PageShell>;
 
   const greet = greetingFor();
 
