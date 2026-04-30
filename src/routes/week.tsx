@@ -21,7 +21,6 @@ function Week() {
     setPct(profileProgress(all.length, p.completed));
   }, []);
 
-  // Build 7-day buckets (today on the right)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const days = Array.from({ length: 7 }).map((_, i) => {
@@ -39,21 +38,22 @@ function Week() {
     return { date: d, count: items.length, avg };
   });
   const insights = weeklyInsights(list);
-
   const dayLabels = ["D", "L", "M", "M", "J", "V", "S"];
 
-  const chart = (heightClass: string) => (
+  const Chart = ({ heightClass }: { heightClass: string }) => (
     <div className={`flex items-end justify-between gap-2 ${heightClass}`}>
       {dayData.map((d, i) => {
         const h = d.avg ? Math.max(8, (d.avg / 10) * 100) : 4;
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full rounded-md transition-all duration-700"
-                 style={{
-                   height: `${h}%`,
-                   backgroundColor: d.avg ? "var(--color-primary)" : "var(--color-border)",
-                   opacity: d.avg ? 0.4 + (d.avg / 10) * 0.6 : 1,
-                 }} />
+            <div
+              className="w-full rounded-md transition-all duration-700"
+              style={{
+                height: `${h}%`,
+                backgroundColor: d.avg ? "var(--color-primary)" : "var(--color-border)",
+                opacity: d.avg ? 0.4 + (d.avg / 10) * 0.6 : 1,
+              }}
+            />
             <span className="text-[10px] text-muted-foreground">{dayLabels[d.date.getDay()]}</span>
           </div>
         );
@@ -68,7 +68,7 @@ function Week() {
         <Link to="/home" className="text-sm text-muted-foreground hover:text-foreground">← Accueil</Link>
       </header>
 
-      {/* MOBILE — preserved */}
+      {/* MOBILE */}
       <div className="lg:hidden">
         <h1 className="mt-8 font-display text-3xl">Cette semaine</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -76,7 +76,7 @@ function Week() {
         </p>
 
         <div className="mt-8 marge-card p-5">
-          {chart("h-32")}
+          <Chart heightClass="h-32" />
           <div className="mt-3 text-xs text-muted-foreground">Charge ressentie au fil des jours</div>
         </div>
 
@@ -118,7 +118,7 @@ function Week() {
         )}
       </div>
 
-      {/* DESKTOP — structured trend overview */}
+      {/* DESKTOP */}
       <section className="hidden lg:block mt-14">
         <div className="grid grid-cols-12 gap-12 items-end">
           <div className="col-span-7">
@@ -149,7 +149,6 @@ function Week() {
         </div>
 
         <div className="mt-12 grid grid-cols-12 gap-8">
-          {/* Left: chart, larger */}
           <div className="col-span-8 marge-card p-8">
             <div className="flex items-baseline justify-between">
               <div>
@@ -158,10 +157,9 @@ function Week() {
               </div>
               <div className="text-xs text-muted-foreground">Échelle 0–10</div>
             </div>
-            <div className="mt-8">{chart("h-56")}</div>
+            <div className="mt-8"><Chart heightClass="h-56" /></div>
           </div>
 
-          {/* Right: insights stack */}
           <aside className="col-span-4 space-y-5">
             <div className="marge-card p-6">
               <div className="text-xs uppercase tracking-wider text-muted-foreground">Ce que Marge repère</div>
@@ -194,16 +192,14 @@ function Week() {
             </div>
             <div className="mt-6 grid grid-cols-2 gap-4">
               {list.slice(0, 8).map(c => (
-                <div key={c.id} className="marge-card p-5 flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="text-sm capitalize font-medium">{c.state_label}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {new Date(c.created_at).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" })}
-                    </div>
-                    <p className="mt-3 text-sm text-foreground/75 leading-relaxed line-clamp-2">
-                      {c.explanation.split(".")[0]}.
-                    </p>
+                <div key={c.id} className="marge-card p-5">
+                  <div className="text-sm capitalize font-medium">{c.state_label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {new Date(c.created_at).toLocaleString("fr-FR", { weekday: "long", hour: "2-digit", minute: "2-digit" })}
                   </div>
+                  <p className="mt-3 text-sm text-foreground/75 leading-relaxed line-clamp-2">
+                    {c.explanation.split(".")[0]}.
+                  </p>
                 </div>
               ))}
             </div>
@@ -211,42 +207,5 @@ function Week() {
         )}
       </section>
     </WideShell>
-  );
-}
-
-// Removed legacy duplicate render
-function _Unused() {
-  return null;
-}
-
-/* Original mobile body kept above inside lg:hidden for reference */
-/* eslint-disable */
-function _OriginalLegacy() {
-  const dayData: any[] = [];
-  const dayLabels: string[] = [];
-  const list: any[] = [];
-  const insights: string[] = [];
-  const pct = 0;
-  return (
-    <>
-      <div className="hidden">
-        <div className="flex items-end justify-between gap-2 h-32">
-          {dayData.map((d: any, i: number) => {
-            const h = d.avg ? Math.max(8, (d.avg / 10) * 100) : 4;
-            return (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full rounded-md transition-all duration-700"
-                     style={{
-                       height: `${h}%`,
-                       backgroundColor: d.avg ? "var(--color-primary)" : "var(--color-border)",
-                       opacity: d.avg ? 0.4 + (d.avg / 10) * 0.6 : 1,
-                     }} />
-                <span className="text-[10px] text-muted-foreground">{dayLabels[d.date.getDay()]}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </>
   );
 }
