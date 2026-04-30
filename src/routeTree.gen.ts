@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 
@@ -22,6 +23,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckinRoute = CheckinRouteImport.update({
+  id: '/checkin',
+  path: '/checkin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -38,12 +44,14 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
   '/onboarding': typeof OnboardingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
   '/onboarding': typeof OnboardingRoute
 }
@@ -51,20 +59,22 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
   '/onboarding': typeof OnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/home' | '/onboarding'
+  fullPaths: '/' | '/about' | '/checkin' | '/home' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/home' | '/onboarding'
-  id: '__root__' | '/' | '/about' | '/home' | '/onboarding'
+  to: '/' | '/about' | '/checkin' | '/home' | '/onboarding'
+  id: '__root__' | '/' | '/about' | '/checkin' | '/home' | '/onboarding'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  CheckinRoute: typeof CheckinRoute
   HomeRoute: typeof HomeRoute
   OnboardingRoute: typeof OnboardingRoute
 }
@@ -83,6 +93,13 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkin': {
+      id: '/checkin'
+      path: '/checkin'
+      fullPath: '/checkin'
+      preLoaderRoute: typeof CheckinRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -105,6 +122,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  CheckinRoute: CheckinRoute,
   HomeRoute: HomeRoute,
   OnboardingRoute: OnboardingRoute,
 }
