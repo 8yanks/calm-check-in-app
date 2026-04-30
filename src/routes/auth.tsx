@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,6 +18,23 @@ function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
 
+  const nextPath = (() => {
+    if (typeof window === "undefined") return "/home";
+    const p = new URLSearchParams(window.location.search).get("next");
+    return p && p.startsWith("/") ? p : "/home";
+  })();
+
+  useEffect(() => {
+    // If already signed in, get out of the auth screen.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) window.location.replace(nextPath);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (s) window.location.replace(nextPath);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [nextPath]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError(null); setInfo(null);
@@ -25,14 +42,14 @@ function Auth() {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: `${window.location.origin}/home` },
+          options: { emailRedirectTo: `${window.location.origin}${nextPath}` },
         });
         if (error) throw error;
         setInfo("Vérifie ta boîte mail pour confirmer ton compte.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/home" });
+        navigate({ to: nextPath });
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Une erreur est survenue.");
