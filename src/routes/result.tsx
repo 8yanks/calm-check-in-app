@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { PageShell } from "@/components/PageShell";
+import { PageShell, WideShell } from "@/components/PageShell";
+import { MargeWordmark } from "@/components/Logo";
 import { getLastResult, getCheckins, getPrefs, profileProgress } from "@/lib/marge";
 
 export const Route = createFileRoute("/result")({
@@ -31,8 +32,14 @@ function Result() {
   };
 
   return (
-    <PageShell>
-      <div className="animate-in fade-in slide-in-from-bottom-3 duration-500">
+    <WideShell>
+      <header className="hidden lg:flex items-center justify-between">
+        <Link to="/home"><MargeWordmark /></Link>
+        <Link to="/home" className="text-sm text-muted-foreground hover:text-foreground">← Accueil</Link>
+      </header>
+
+      {/* MOBILE — preserved */}
+      <div className="lg:hidden animate-in fade-in slide-in-from-bottom-3 duration-500">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">Ton état là, maintenant</div>
         <div className="mt-3 inline-flex items-center gap-3 rounded-full px-4 py-2"
              style={{ backgroundColor: stateColor[last.state_label] }}>
@@ -65,6 +72,50 @@ function Result() {
           </Link>
         </div>
       </div>
-    </PageShell>
+
+      {/* DESKTOP — grouped editorial */}
+      <section className="hidden lg:grid grid-cols-12 gap-12 mt-16 animate-in fade-in slide-in-from-bottom-3 duration-500">
+        {/* Left: state + explanation */}
+        <div className="col-span-7 max-w-2xl">
+          <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Ton état, là, maintenant</div>
+          <div className="mt-5 inline-flex items-center gap-3 rounded-full px-5 py-2.5"
+               style={{ backgroundColor: stateColor[last.state_label] }}>
+            <span className="h-2 w-2 rounded-full bg-foreground/40" />
+            <span className="font-display text-2xl text-foreground capitalize">{last.state_label}</span>
+          </div>
+          <h1 className="mt-10 font-display text-5xl leading-[1.1] tracking-tight max-w-[20ch]">
+            {last.explanation}
+          </h1>
+
+          <div className="mt-12 flex items-center gap-4">
+            <Link to="/home" className="rounded-full bg-primary px-8 py-4 text-base font-medium text-primary-foreground hover:opacity-90">
+              Retour à l'accueil
+            </Link>
+            <Link to="/week" className="text-sm text-foreground/70 hover:text-foreground px-4 py-4">
+              Voir mes derniers points →
+            </Link>
+          </div>
+        </div>
+
+        {/* Right: action + progress */}
+        <aside className="col-span-5 space-y-5">
+          <div className="marge-card p-8 border-primary/30">
+            <div className="text-xs uppercase tracking-wider text-primary">Action utile · 30 à 90 secondes</div>
+            <p className="mt-5 text-xl leading-relaxed text-foreground font-display">
+              {last.micro_action}
+            </p>
+          </div>
+          <div className="marge-card p-6">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Chaque point aide Marge à mieux comprendre ton rythme.
+            </p>
+            <div className="mt-4 h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">Profil en construction · {pct}%</div>
+          </div>
+        </aside>
+      </section>
+    </WideShell>
   );
 }
