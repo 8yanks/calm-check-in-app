@@ -14,7 +14,147 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      checkins: {
+        Row: {
+          blocker: string
+          calm_level: string
+          created_at: string
+          explanation: string
+          id: string
+          immediate_need: string
+          load_score: number
+          mental_load: string
+          micro_action: string
+          state_label: string
+          user_id: string
+        }
+        Insert: {
+          blocker: string
+          calm_level: string
+          created_at?: string
+          explanation: string
+          id?: string
+          immediate_need: string
+          load_score?: number
+          mental_load: string
+          micro_action: string
+          state_label: string
+          user_id: string
+        }
+        Update: {
+          blocker?: string
+          calm_level?: string
+          created_at?: string
+          explanation?: string
+          id?: string
+          immediate_need?: string
+          load_score?: number
+          mental_load?: string
+          micro_action?: string
+          state_label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      onboarding_preferences: {
+        Row: {
+          best_moments: string[]
+          completed_at: string
+          id: string
+          main_goal: string | null
+          notifications_enabled: boolean
+          theme: string
+          user_id: string
+        }
+        Insert: {
+          best_moments?: string[]
+          completed_at?: string
+          id?: string
+          main_goal?: string | null
+          notifications_enabled?: boolean
+          theme?: string
+          user_id: string
+        }
+        Update: {
+          best_moments?: string[]
+          completed_at?: string
+          id?: string
+          main_goal?: string | null
+          notifications_enabled?: boolean
+          theme?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profile_progress: {
+        Row: {
+          percentage: number
+          signals_count: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          percentage?: number
+          signals_count?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          percentage?: number
+          signals_count?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      weekly_summaries: {
+        Row: {
+          average_load: number | null
+          created_at: string
+          id: string
+          insights: Json
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          average_load?: number | null
+          created_at?: string
+          id?: string
+          insights?: Json
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          average_load?: number | null
+          created_at?: string
+          id?: string
+          insights?: Json
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
