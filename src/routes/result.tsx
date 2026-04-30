@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { getLastResult, getCheckins, getPrefs, profileProgress } from "@/lib/marge";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/result")({
   head: () => ({ meta: [{ title: "Ton point — Marge" }] }),
@@ -11,6 +12,7 @@ export const Route = createFileRoute("/result")({
 
 function Result() {
   const navigate = useNavigate();
+  const { session, loading: authLoading } = useRequireAuth();
   const [last, setLast] = useState<ReturnType<typeof getLastResult>>(null);
   const [pct, setPct] = useState(0);
 
@@ -22,7 +24,7 @@ function Result() {
     setPct(profileProgress(getCheckins().length, p.completed));
   }, [navigate]);
 
-  if (!last) return <PageShell><div className="h-screen" /></PageShell>;
+  if (authLoading || !session || !last) return <PageShell><div className="h-screen" /></PageShell>;
 
   const stateColor: Record<string, string> = {
     "léger": "oklch(0.85 0.06 145)",

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { getCheckins, weeklyInsights, profileProgress, getPrefs, type CheckinRecord } from "@/lib/marge";
+import { useRequireAuth } from "@/hooks/use-auth";
+import { PageShell } from "@/components/PageShell";
 
 export const Route = createFileRoute("/week")({
   head: () => ({ meta: [{ title: "Ma semaine — Marge" }] }),
@@ -10,6 +12,7 @@ export const Route = createFileRoute("/week")({
 });
 
 function Week() {
+  const { session, loading: authLoading } = useRequireAuth();
   const [list, setList] = useState<CheckinRecord[]>([]);
   const [pct, setPct] = useState(0);
   const [allCount, setAllCount] = useState(0);
@@ -22,6 +25,8 @@ function Week() {
     const p = getPrefs();
     setPct(profileProgress(all.length, p.completed));
   }, []);
+
+  if (authLoading || !session) return <PageShell><div className="h-screen" /></PageShell>;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

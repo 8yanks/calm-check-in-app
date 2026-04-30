@@ -5,6 +5,7 @@ import {
   LABELS, deriveState, buildExplanation, buildMicroAction, saveCheckin,
   type MentalLoad, type CalmLevel, type Blocker, type Need,
 } from "@/lib/marge";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/checkin")({
   head: () => ({ meta: [{ title: "Faire un point — Marge" }] }),
@@ -20,8 +21,11 @@ interface State {
 
 function Checkin() {
   const navigate = useNavigate();
+  const { session, loading: authLoading } = useRequireAuth();
   const [step, setStep] = useState(0);
   const [state, setState] = useState<State>({});
+
+  if (authLoading || !session) return <PageShell><div className="h-screen" /></PageShell>;
 
   const questions = [
     {
