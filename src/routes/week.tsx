@@ -136,17 +136,20 @@ function Week() {
           })}
 
           {/* Day labels */}
-          {points.map((p, i) => (
-            <text key={i} x={p.x} y={h - 8}
-              textAnchor="middle"
-              fontSize={compact ? 10 : 11}
-              fill="var(--color-muted-foreground)"
-              fontFamily="var(--font-sans)"
-              opacity={i === todayIdx ? 1 : 0.7}
-            >
-              {compact ? dayLabelsShort[p.x === padX + 6 * stepX ? new Date().getDay() : dayData[i].date.getDay()] : dayLabels[dayData[i].date.getDay()]}
-            </text>
-          ))}
+          {points.map((p, i) => {
+            const dow = dayData[i].date.getDay();
+            return (
+              <text key={i} x={p.x} y={h - 8}
+                textAnchor="middle"
+                fontSize={compact ? 10 : 11}
+                fill="var(--color-muted-foreground)"
+                fontFamily="var(--font-sans)"
+                opacity={i === todayIdx ? 1 : 0.7}
+              >
+                {compact ? dayLabelsShort[dow] : dayLabels[dow]}
+              </text>
+            );
+          })}
         </svg>
       </div>
     );
