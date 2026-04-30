@@ -55,10 +55,19 @@ function Onboarding() {
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-400" key={step}>
       {step === 0 && (
         <div>
-          <h2 className="font-display text-3xl lg:text-5xl leading-[1.05] tracking-tight">Une minute suffit.</h2>
-          <p className="mt-6 lg:mt-8 text-foreground/80 leading-relaxed lg:text-lg lg:max-w-md">
+          <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary marge-breath" aria-hidden />
+            <span>Premier point</span>
+          </div>
+          <h2 className="mt-6 font-display text-3xl lg:text-[3.4rem] leading-[1.04] tracking-tight">
+            Une minute<br className="hidden lg:block" /> suffit.
+          </h2>
+          <p className="mt-6 lg:mt-10 text-foreground/80 leading-relaxed lg:text-lg lg:max-w-md">
             Marge te pose quelques questions simples. En retour, tu reçois tout de suite
             une lecture claire de ton état et une action utile, courte.
+          </p>
+          <p className="mt-6 hidden lg:block text-sm text-foreground/55 leading-relaxed max-w-sm">
+            Pas de compte à créer pour commencer. Tu peux t'arrêter à tout moment.
           </p>
         </div>
       )}

@@ -79,6 +79,12 @@ function Week() {
     return (
       <div className="relative w-full" style={{ height: h }}>
         <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="margeAreaFade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           {/* Baseline */}
           <line
             x1={padX} x2={w - padX}
@@ -102,12 +108,18 @@ function Week() {
           />
 
           {areaPath && (
-            <path d={areaPath} fill="var(--color-primary)" opacity={0.10} />
+            <path d={areaPath} fill="url(#margeAreaFade)" />
           )}
           {linePath && (
-            <path d={linePath} fill="none"
+            <path
+              d={linePath} fill="none"
               stroke="var(--color-primary)" strokeWidth={1.75}
-              strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
+              strokeLinecap="round" strokeLinejoin="round" opacity={0.9}
+              style={{
+                strokeDasharray: 2000,
+                strokeDashoffset: 2000,
+                animation: "marge-draw 1.4s ease-out 0.1s forwards",
+              }}
             />
           )}
 
@@ -150,6 +162,20 @@ function Week() {
               </text>
             );
           })}
+          {/* Today marker label */}
+          {points[todayIdx].y !== null && !compact && (
+            <text
+              x={points[todayIdx].x}
+              y={padTop - 6}
+              textAnchor="middle"
+              fontSize={10}
+              fill="var(--color-primary)"
+              fontFamily="var(--font-sans)"
+              opacity={0.8}
+            >
+              aujourd'hui
+            </text>
+          )}
         </svg>
       </div>
     );
@@ -273,41 +299,47 @@ function Week() {
           </div>
         </div>
 
-        {/* Trend — full-width, not boxed */}
-        <div className="mt-16">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Charge ressentie</div>
-              <div className="mt-2 font-display text-2xl">Sept jours</div>
+        {/* Trend + insights — one cohesive editorial unit */}
+        <div className="mt-16 grid grid-cols-12 gap-12 items-start">
+          <div className="col-span-8">
+            <div className="flex items-baseline justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Charge ressentie</div>
+                <div className="mt-2 font-display text-2xl">Sept jours</div>
+              </div>
+              <div className="text-xs text-muted-foreground tabular-nums">0 — 10</div>
             </div>
-            <div className="text-xs text-muted-foreground tabular-nums">0 — 10</div>
+            <div className="mt-8 border-t border-border pt-8">
+              <Trend heightPx={220} />
+            </div>
+            {!hasData && (
+              <p className="mt-6 text-sm text-foreground/60 leading-relaxed max-w-md">
+                La courbe se dessinera à mesure que tu déposes des points.
+                Rien à remplir, rien à rattraper.
+              </p>
+            )}
           </div>
-          <div className="mt-8">
-            <Trend heightPx={220} />
-          </div>
-          {!hasData && (
-            <p className="mt-4 text-sm text-muted-foreground max-w-md">
-              La courbe se dessinera à mesure que tu déposes des points. Rien à remplir, rien à rattraper.
-            </p>
-          )}
-        </div>
 
-        {/* Insights as editorial notes, not boxed */}
-        <div className="mt-20 grid grid-cols-12 gap-12">
-          <div className="col-span-4">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Ce que Marge repère</div>
-            <p className="mt-3 text-sm text-foreground/60 leading-relaxed">
-              Des observations légères, basées uniquement sur tes derniers points.
-            </p>
-          </div>
-          <ul className="col-span-8 space-y-6">
-            {insights.map((t, i) => (
-              <li key={i} className="flex gap-5 border-b border-border pb-6 last:border-b-0">
-                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary shrink-0" />
-                <p className="text-lg text-foreground/85 leading-relaxed font-display tracking-tight">{t}</p>
-              </li>
-            ))}
-          </ul>
+          <aside className="col-span-4 lg:pl-10 lg:border-l lg:border-border self-stretch">
+            <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+              Ce que Marge repère
+            </div>
+            <ul className="mt-6 space-y-5">
+              {insights.map((t, i) => (
+                <li key={i} className="flex gap-4">
+                  <span className="mt-[10px] h-px w-4 bg-primary shrink-0 opacity-70" />
+                  <p className="font-display text-[17px] leading-snug tracking-tight text-foreground/85">
+                    {t}
+                  </p>
+                </li>
+              ))}
+            </ul>
+            {hasData && (
+              <p className="mt-8 text-xs text-muted-foreground/80 leading-relaxed">
+                Lectures faites à partir de tes {list.length} dernier{list.length > 1 ? "s" : ""} point{list.length > 1 ? "s" : ""}.
+              </p>
+            )}
+          </aside>
         </div>
 
         {list.length > 0 && (
