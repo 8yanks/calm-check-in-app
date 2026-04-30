@@ -26,6 +26,7 @@ export type Database = {
           mental_load: string
           micro_action: string
           state_label: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -39,6 +40,7 @@ export type Database = {
           mental_load: string
           micro_action: string
           state_label: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -52,6 +54,7 @@ export type Database = {
           mental_load?: string
           micro_action?: string
           state_label?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -64,6 +67,7 @@ export type Database = {
           main_goal: string | null
           notifications_enabled: boolean
           theme: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -73,6 +77,7 @@ export type Database = {
           main_goal?: string | null
           notifications_enabled?: boolean
           theme?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -82,6 +87,7 @@ export type Database = {
           main_goal?: string | null
           notifications_enabled?: boolean
           theme?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -134,6 +140,7 @@ export type Database = {
           created_at: string
           id: string
           insights: Json
+          updated_at: string
           user_id: string
           week_start: string
         }
@@ -142,6 +149,7 @@ export type Database = {
           created_at?: string
           id?: string
           insights?: Json
+          updated_at?: string
           user_id: string
           week_start: string
         }
@@ -150,6 +158,7 @@ export type Database = {
           created_at?: string
           id?: string
           insights?: Json
+          updated_at?: string
           user_id?: string
           week_start?: string
         }
