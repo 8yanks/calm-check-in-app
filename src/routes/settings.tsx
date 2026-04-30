@@ -44,6 +44,7 @@ function SettingsPage() {
   const signOut = async () => {
     await supabase.auth.signOut();
     setEmail(null);
+    navigate({ to: "/auth" });
   };
 
   return (
