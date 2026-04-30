@@ -79,6 +79,12 @@ function Week() {
     return (
       <div className="relative w-full" style={{ height: h }}>
         <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="margeAreaFade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           {/* Baseline */}
           <line
             x1={padX} x2={w - padX}
@@ -102,12 +108,18 @@ function Week() {
           />
 
           {areaPath && (
-            <path d={areaPath} fill="var(--color-primary)" opacity={0.10} />
+            <path d={areaPath} fill="url(#margeAreaFade)" />
           )}
           {linePath && (
-            <path d={linePath} fill="none"
+            <path
+              d={linePath} fill="none"
               stroke="var(--color-primary)" strokeWidth={1.75}
-              strokeLinecap="round" strokeLinejoin="round" opacity={0.85}
+              strokeLinecap="round" strokeLinejoin="round" opacity={0.9}
+              style={{
+                strokeDasharray: 2000,
+                strokeDashoffset: 2000,
+                animation: "marge-draw 1.4s ease-out 0.1s forwards",
+              }}
             />
           )}
 
@@ -150,6 +162,20 @@ function Week() {
               </text>
             );
           })}
+          {/* Today marker label */}
+          {points[todayIdx].y !== null && !compact && (
+            <text
+              x={points[todayIdx].x}
+              y={padTop - 6}
+              textAnchor="middle"
+              fontSize={10}
+              fill="var(--color-primary)"
+              fontFamily="var(--font-sans)"
+              opacity={0.8}
+            >
+              aujourd'hui
+            </text>
+          )}
         </svg>
       </div>
     );
