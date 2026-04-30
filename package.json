@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build && node -e \"import('fs').then(async(fs)=>{const{join}=await import('path');const sa='dist/server/assets',ca='dist/client/assets';fs.readdirSync(sa).forEach(f=>fs.copyFileSync(join(sa,f),join(ca,f)));fs.copyFileSync('dist/server/index.js','dist/client/_worker.js');console.log('Worker entry + server assets copied to dist/client/');})\"",
+    "build": "vite build && node build-worker.mjs",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
