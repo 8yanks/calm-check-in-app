@@ -170,7 +170,20 @@ export function greetingFor(date = new Date()): string {
 }
 
 export function weeklyInsights(checkins: CheckinRecord[]): string[] {
-  if (checkins.length < 2) return ["Continue à faire des points pour que Marge repère tes rythmes."];
+  if (checkins.length === 0) {
+    return [
+      "Pas encore de point cette semaine.",
+      "Un seul point suffit déjà pour commencer à voir quelque chose.",
+    ];
+  }
+  if (checkins.length === 1) {
+    const c = checkins[0];
+    const day = new Date(c.created_at).toLocaleDateString("fr-FR", { weekday: "long" });
+    return [
+      `Un premier point ${day}. C'est un début, et c'est suffisant.`,
+      "Marge commencera à repérer tes rythmes à partir de deux ou trois points.",
+    ];
+  }
   const out: string[] = [];
   // Time-of-day load
   const buckets = { morning: [] as number[], day: [] as number[], evening: [] as number[] };
@@ -201,6 +214,21 @@ export function weeklyInsights(checkins: CheckinRecord[]): string[] {
       calme: "Tu reviens souvent à un besoin de calme.",
     };
     out.push(map[topNeed]);
+  }
+  // Lightest day, if we have a few points
+  if (checkins.length >= 3) {
+    const byDay: Record<string, number[]> = {};
+    checkins.forEach(c => {
+      const k = new Date(c.created_at).toLocaleDateString("fr-FR", { weekday: "long" });
+      (byDay[k] ||= []).push(c.load_score);
+    });
+    const ranked = Object.entries(byDay)
+      .map(([k, arr]) => [k, arr.reduce((s, n) => s + n, 0) / arr.length] as const)
+      .sort((a, b) => a[1] - b[1]);
+    const lightest = ranked[0];
+    if (lightest && lightest[1] < 5) {
+      out.push(`Le ${lightest[0]} a été ton jour le plus léger.`);
+    }
   }
   return out;
 }
