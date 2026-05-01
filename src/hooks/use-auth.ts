@@ -19,7 +19,7 @@ export function useAuth() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  return { session, user: session?.user ?? null, loading };
+  return { session, user: session?.user ?? null, loading, isAnonymous: session?.user?.is_anonymous === true };
 }
 
 /**

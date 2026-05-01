@@ -12,7 +12,7 @@ export const Route = createFileRoute("/result")({
 
 function Result() {
   const navigate = useNavigate();
-  const { session, loading: authLoading } = useRequireAuth();
+  const { session, loading: authLoading, isAnonymous } = useRequireAuth();
   const [last, setLast] = useState<ReturnType<typeof getLastResult>>(null);
   const [pct, setPct] = useState(0);
 
@@ -65,14 +65,29 @@ function Result() {
           <div className="mt-2 text-xs text-muted-foreground">Profil en construction · {pct}%</div>
         </div>
 
-        <div className="mt-10 space-y-3">
-          <Link to="/home" className="block w-full rounded-full bg-primary py-4 text-center text-primary-foreground hover:opacity-90">
-            Retour à l'accueil
-          </Link>
-          <Link to="/week" className="block w-full text-center text-sm text-muted-foreground hover:text-foreground py-2">
-            Voir mes derniers points
-          </Link>
-        </div>
+        {isAnonymous ? (
+          <div className="mt-8 rounded-2xl border border-primary/40 bg-primary/5 p-5">
+            <p className="font-display text-xl leading-snug">Garde tes résultats.</p>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              Crée un compte pour sauvegarder tes bilans et suivre ton évolution dans le temps — gratuitement.
+            </p>
+            <Link to="/auth" className="mt-4 block w-full rounded-full bg-primary py-3 text-center text-sm font-medium text-primary-foreground hover:opacity-90 cursor-pointer">
+              Créer mon compte gratuitement
+            </Link>
+            <Link to="/home" className="mt-3 block w-full text-center text-sm text-muted-foreground hover:text-foreground py-1">
+              Continuer sans compte pour l'instant
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-10 space-y-3">
+            <Link to="/home" className="block w-full rounded-full bg-primary py-4 text-center text-primary-foreground hover:opacity-90">
+              Retour à l'accueil
+            </Link>
+            <Link to="/week" className="block w-full text-center text-sm text-muted-foreground hover:text-foreground py-2">
+              Voir mes derniers points
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* DESKTOP — grouped editorial */}
@@ -116,6 +131,21 @@ function Result() {
             </div>
             <div className="mt-2 text-xs text-muted-foreground">Profil en construction · {pct}%</div>
           </div>
+
+          {isAnonymous && (
+            <div className="rounded-2xl border border-primary/40 bg-primary/5 p-6">
+              <p className="font-display text-xl leading-snug">Garde tes résultats.</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                Crée un compte pour sauvegarder tes bilans et suivre ton évolution dans le temps — gratuitement.
+              </p>
+              <Link to="/auth" className="mt-4 block w-full rounded-full bg-primary py-3 text-center text-sm font-medium text-primary-foreground hover:opacity-90 cursor-pointer">
+                Créer mon compte gratuitement
+              </Link>
+              <Link to="/home" className="mt-3 block w-full text-center text-sm text-muted-foreground hover:text-foreground py-1">
+                Continuer sans compte
+              </Link>
+            </div>
+          )}
         </aside>
       </section>
     </WideShell>

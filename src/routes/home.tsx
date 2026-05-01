@@ -13,7 +13,7 @@ export const Route = createFileRoute("/home")({
 
 function Home() {
   const navigate = useNavigate();
-  const { session, loading: authLoading } = useRequireAuth();
+  const { session, loading: authLoading, isAnonymous } = useRequireAuth();
   const [ready, setReady] = useState(false);
   const [checkinsCount, setCount] = useState(0);
   const [last, setLast] = useState<ReturnType<typeof getLastResult>>(null);
@@ -60,9 +60,21 @@ function Home() {
             {last ? "Une minute peut suffire à voir plus clair." : "Quelques questions simples. Une réponse utile, tout de suite."}
           </p>
         </div>
-        <button onClick={() => navigate({ to: "/checkin" })} className="mt-10 w-full rounded-2xl bg-primary py-6 text-lg font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
-          Faire un point
-        </button>
+        {isAnonymous && checkinsCount >= 1 ? (
+          <div className="mt-10 rounded-2xl border border-primary/40 bg-primary/5 p-6">
+            <p className="font-display text-2xl leading-snug">Crée un compte pour continuer.</p>
+            <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+              Sauvegarde tes bilans et suis ton évolution dans le temps — gratuitement.
+            </p>
+            <Link to="/auth" className="mt-5 block w-full rounded-full bg-primary py-4 text-center font-medium text-primary-foreground hover:opacity-90 cursor-pointer">
+              Créer mon compte
+            </Link>
+          </div>
+        ) : (
+          <button onClick={() => navigate({ to: "/checkin" })} className="mt-10 w-full rounded-2xl bg-primary py-6 text-lg font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
+            Faire un point
+          </button>
+        )}
         {last && (
           <Link to="/result" className="mt-4 marge-card block p-5 hover:border-primary transition">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">Dernier point</div>
@@ -104,9 +116,15 @@ function Home() {
           </p>
 
           <div className="mt-10 flex items-center gap-4">
-            <button onClick={() => navigate({ to: "/checkin" })} className="rounded-full bg-primary px-10 py-5 text-base font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
-              Faire un point
-            </button>
+            {isAnonymous && checkinsCount >= 1 ? (
+              <Link to="/auth" className="rounded-full bg-primary px-10 py-5 text-base font-medium text-primary-foreground transition hover:opacity-95 shadow-sm cursor-pointer">
+                Créer mon compte pour continuer
+              </Link>
+            ) : (
+              <button onClick={() => navigate({ to: "/checkin" })} className="rounded-full bg-primary px-10 py-5 text-base font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
+                Faire un point
+              </button>
+            )}
             {last && (
               <Link to="/result" className="text-sm text-foreground/70 hover:text-foreground transition px-4 py-4">
                 Revoir le dernier →
