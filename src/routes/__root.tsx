@@ -39,10 +39,17 @@ export const Route = createRootRoute({
   notFoundComponent: NotFoundComponent,
 });
 
+// Synchronous theme bootstrap: runs in <head> before <body> renders so the
+// dark class is on <html> from the very first paint — no white flash.
+const themeBootstrap = `try{var p=JSON.parse(localStorage.getItem("marge.prefs")||"{}");if(p&&p.theme==="dark"){document.documentElement.classList.add("dark")}}catch(e){}`;
+
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
-      <head><HeadContent /></head>
+      <head>
+        <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
+      </head>
       <body>
         {children}
         <Scripts />

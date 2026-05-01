@@ -62,7 +62,9 @@ function SettingsPage() {
     const next = { ...prefs, ...p };
     setPrefs(next);
     savePrefs(p);
-    // Mirror to Supabase (best-effort, fire-and-forget)
+    // Mirror to Supabase (best-effort, fire-and-forget).
+    // onConflict: "user_id" is REQUIRED — table has PK on `id`, UNIQUE on `user_id`.
+    // Without it, PostgREST tries to INSERT and violates the UNIQUE constraint.
     supabase
       .from("onboarding_preferences")
       .upsert({
@@ -71,7 +73,7 @@ function SettingsPage() {
         main_goal: next.main_goal || null,
         notifications_enabled: next.notifications_enabled,
         theme: next.theme,
-      })
+      }, { onConflict: "user_id" })
       .then(({ error }) => { if (error) console.error("settings sync error:", error); });
   };
 

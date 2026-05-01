@@ -42,20 +42,33 @@ function Onboarding() {
   const finish = async () => {
     setSubmitting(true);
     try {
-      // Save to Supabase
-      await supabase.from("onboarding_preferences").upsert({
-        user_id: session.user.id,
-        best_moments: selectedMoments,
-        main_goal: goal || null,
-        notifications_enabled: !!notif,
-        theme: "light",
-      });
-      // Initialize profile_progress (upsert = idempotent)
-      await supabase.from("profile_progress").upsert({
-        user_id: session.user.id,
-        percentage: 10,
-        signals_count: 0,
-      });
+      // Save to Supabase. onConflict: "user_id" is REQUIRED — onboarding_preferences
+      // has PK on `id` with a UNIQUE on `user_id`; without it the upsert tries to
+      // INSERT a new row and violates the unique constraint when the user re-onboards.
+      const { error: prefsErr } = await supabase
+        .from("onboarding_preferences")
+        .upsert(
+          {
+            user_id: session.user.id,
+            best_moments: selectedMoments,
+            main_goal: goal || null,
+            notifications_enabled: !!notif,
+            theme: "light",
+          },
+          { onConflict: "user_id" }
+        );
+      if (prefsErr) throw prefsErr;
+
+      // Initialize profile_progress (PK is user_id → default upsert works).
+      // Don't reset existing progress on re-onboarding: ignoreDuplicates.
+      await supabase.from("profile_progress").upsert(
+        {
+          user_id: session.user.id,
+          percentage: 10,
+          signals_count: 0,
+        },
+        { ignoreDuplicates: true }
+      );
     } catch (err) {
       console.error("Onboarding DB save error:", err);
       // Continue anyway — we also save locally
