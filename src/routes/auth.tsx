@@ -61,12 +61,25 @@ function Auth() {
     setLoading(true); setError(null); setInfo(null);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email, password,
-          options: { emailRedirectTo: `${window.location.origin}${nextPath}` },
-        });
-        if (error) throw error;
-        setInfo("Vérifie ta boîte mail pour confirmer ton compte.");
+        // If user is currently anonymous, PROMOTE the anon account instead of
+        // creating a new one — this preserves their checkins, prefs, progress.
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing?.user.is_anonymous) {
+          // Step 1: attach email (sends confirmation if email confirmations are on)
+          const { error: emailErr } = await supabase.auth.updateUser({ email });
+          if (emailErr) throw emailErr;
+          // Step 2: set password so the user can sign back in later
+          const { error: pwErr } = await supabase.auth.updateUser({ password });
+          if (pwErr) throw pwErr;
+          setInfo("Compte créé. Vérifie ta boîte mail pour confirmer l'email.");
+        } else {
+          const { error } = await supabase.auth.signUp({
+            email, password,
+            options: { emailRedirectTo: `${window.location.origin}${nextPath}` },
+          });
+          if (error) throw error;
+          setInfo("Vérifie ta boîte mail pour confirmer ton compte.");
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;

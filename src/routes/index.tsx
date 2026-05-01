@@ -16,39 +16,48 @@ function Welcome() {
 
   useEffect(() => {
     // Auto-redirect if already authenticated
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) { setChecking(false); return; }
-      applyTheme("light");
-      const { data } = await supabase
-        .from("onboarding_preferences")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      navigate({ to: data ? "/home" : "/onboarding" });
-    });
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setChecking(false); return; }
+        applyTheme("light");
+        const { data } = await supabase
+          .from("onboarding_preferences")
+          .select("user_id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        navigate({ to: data ? "/home" : "/onboarding" });
+      } catch (err) {
+        console.error("landing session check failed:", err);
+        setChecking(false);
+      }
+    })();
   }, [navigate]);
 
   const handleStart = async () => {
     setStarting(true);
-    // Check for existing session first
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      const { data } = await supabase
-        .from("onboarding_preferences")
-        .select("user_id")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-      navigate({ to: data ? "/home" : "/onboarding" });
-      return;
-    }
-    // Create anonymous session → onboarding
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      console.error("signInAnonymously error:", error);
+    try {
+      // Check for existing session first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const { data } = await supabase
+          .from("onboarding_preferences")
+          .select("user_id")
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        navigate({ to: data ? "/home" : "/onboarding" });
+        return;
+      }
+      // Create anonymous session → onboarding
+      const { error } = await supabase.auth.signInAnonymously();
+      if (error) throw error;
+      navigate({ to: "/onboarding" });
+    } catch (err) {
+      console.error("handleStart error:", err);
       setStarting(false);
+      // Fallback: send the user to /auth so they can try email signup
+      navigate({ to: "/auth" });
     }
-    // onAuthStateChange in auth.tsx isn't active here — navigate manually
-    navigate({ to: "/onboarding" });
   };
 
   // While checking session don't flash the landing

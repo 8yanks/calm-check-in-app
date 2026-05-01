@@ -2,8 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
-import { getLastResult, getCheckins, getPrefs, profileProgress } from "@/lib/marge";
+import { getLastResult, getCheckins, getPrefs, profileProgress, type CheckinRecord } from "@/lib/marge";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/result")({
   head: () => ({ meta: [{ title: "Ton point — Marge" }] }),
@@ -13,16 +14,45 @@ export const Route = createFileRoute("/result")({
 function Result() {
   const navigate = useNavigate();
   const { session, loading: authLoading, isAnonymous } = useRequireAuth();
-  const [last, setLast] = useState<ReturnType<typeof getLastResult>>(null);
+  const [last, setLast] = useState<CheckinRecord | null>(null);
   const [pct, setPct] = useState(0);
 
   useEffect(() => {
-    const r = getLastResult();
-    if (!r) { navigate({ to: "/home" }); return; }
-    setLast(r);
-    const p = getPrefs();
-    setPct(profileProgress(getCheckins().length, p.completed));
-  }, [navigate]);
+    if (authLoading || !session) return;
+
+    const load = async () => {
+      // Try localStorage first (fast path: just-completed checkin)
+      const cached = getLastResult();
+      if (cached) {
+        setLast(cached);
+        const p = getPrefs();
+        setPct(profileProgress(getCheckins().length, p.completed));
+        return;
+      }
+
+      // Fallback: fetch most recent checkin from Supabase + progress
+      const [{ data: latest }, { data: progress }] = await Promise.all([
+        supabase
+          .from("checkins")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("profile_progress")
+          .select("percentage")
+          .eq("user_id", session.user.id)
+          .maybeSingle(),
+      ]);
+
+      if (!latest) { navigate({ to: "/home" }); return; }
+      setLast(latest as unknown as CheckinRecord);
+      setPct(progress?.percentage ?? 10);
+    };
+
+    load();
+  }, [authLoading, session, navigate]);
 
   if (authLoading || !session || !last) return <PageShell><div className="h-screen" /></PageShell>;
 

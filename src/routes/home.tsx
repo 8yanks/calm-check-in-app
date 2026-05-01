@@ -30,8 +30,6 @@ function Home() {
 
     const load = async () => {
       try {
-        applyTheme("light");
-
         // 1. Check onboarding completion
         const { data: prefs } = await supabase
           .from("onboarding_preferences")
@@ -41,47 +39,36 @@ function Home() {
 
         if (!prefs) { navigate({ to: "/onboarding" }); return; }
 
-        if (prefs.theme === "dark") applyTheme("dark");
+        // Apply theme once based on saved prefs (avoids light→dark flash)
+        applyTheme(prefs.theme === "dark" ? "dark" : "light");
 
-        // 2. Display name from profiles table
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("display_name")
-          .eq("id", session.user.id)
-          .maybeSingle();
+        // 2. Run remaining queries in parallel
+        const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        const [
+          { data: profile },
+          { data: progress },
+          { data: recent3 },
+          { count: totalCheckins },
+          { data: weekData },
+        ] = await Promise.all([
+          supabase.from("profiles").select("display_name").eq("id", session.user.id).maybeSingle(),
+          supabase.from("profile_progress").select("percentage, signals_count").eq("user_id", session.user.id).maybeSingle(),
+          supabase.from("checkins").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(3),
+          supabase.from("checkins").select("*", { count: "exact", head: true }).eq("user_id", session.user.id),
+          supabase.from("checkins").select("*").eq("user_id", session.user.id).gte("created_at", cutoff),
+        ]);
+
         setDisplayName(profile?.display_name ?? null);
-
-        // 3. Profile progress
-        const { data: progress } = await supabase
-          .from("profile_progress")
-          .select("percentage, signals_count")
-          .eq("user_id", session.user.id)
-          .maybeSingle();
         setPct(progress?.percentage ?? 10);
-        setCount(progress?.signals_count ?? 0);
-
-        // 4. Recent checkins (last 3)
-        const { data: recent3 } = await supabase
-          .from("checkins")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .order("created_at", { ascending: false })
-          .limit(3);
+        // Actual checkins count (source of truth) — falls back to signals_count.
+        setCount(totalCheckins ?? progress?.signals_count ?? 0);
 
         if (recent3?.length) {
           setRecent(recent3 as unknown as CheckinRecord[]);
           setLast(recent3[0] as unknown as LastCheckin);
         }
 
-        // 5. Weekly insights (last 7 days)
-        const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-        const { data: weekData } = await supabase
-          .from("checkins")
-          .select("*")
-          .eq("user_id", session.user.id)
-          .gte("created_at", cutoff);
         if (weekData) setInsights(weeklyInsights(weekData as unknown as CheckinRecord[]));
-
       } catch (err) {
         console.error("Home load error:", err);
       }

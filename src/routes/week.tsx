@@ -2,9 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
-import { getCheckins, weeklyInsights, profileProgress, getPrefs, type CheckinRecord } from "@/lib/marge";
+import { weeklyInsights, type CheckinRecord } from "@/lib/marge";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { PageShell } from "@/components/PageShell";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/week")({
   head: () => ({ meta: [{ title: "Ma semaine — Marge" }] }),
@@ -16,17 +17,45 @@ function Week() {
   const [list, setList] = useState<CheckinRecord[]>([]);
   const [pct, setPct] = useState(0);
   const [allCount, setAllCount] = useState(0);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const all = getCheckins();
-    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
-    setList(all.filter(c => new Date(c.created_at).getTime() >= cutoff));
-    setAllCount(all.length);
-    const p = getPrefs();
-    setPct(profileProgress(all.length, p.completed));
-  }, []);
+    if (authLoading || !session) return;
 
-  if (authLoading || !session) return <PageShell><div className="h-screen" /></PageShell>;
+    const load = async () => {
+      try {
+        const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+        const [{ data: weekData }, { count }, { data: progress }] = await Promise.all([
+          supabase
+            .from("checkins")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .gte("created_at", cutoff)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("checkins")
+            .select("*", { count: "exact", head: true })
+            .eq("user_id", session.user.id),
+          supabase
+            .from("profile_progress")
+            .select("percentage")
+            .eq("user_id", session.user.id)
+            .maybeSingle(),
+        ]);
+
+        setList((weekData ?? []) as unknown as CheckinRecord[]);
+        setAllCount(count ?? 0);
+        setPct(progress?.percentage ?? 10);
+      } catch (err) {
+        console.error("Week load error:", err);
+      }
+      setReady(true);
+    };
+
+    load();
+  }, [authLoading, session]);
+
+  if (authLoading || !session || !ready) return <PageShell><div className="h-screen" /></PageShell>;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

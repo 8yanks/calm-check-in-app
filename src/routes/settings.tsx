@@ -1,8 +1,9 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { getPrefs, savePrefs, clearAll, applyTheme } from "@/lib/marge";
+import { getPrefs, savePrefs, clearAll, applyTheme, defaultPrefs, type OnboardingPrefs } from "@/lib/marge";
 import { supabase } from "@/integrations/supabase/client";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Réglages — Marge" }] }),
@@ -17,27 +18,84 @@ const moments = [
 
 function SettingsPage() {
   const navigate = useNavigate();
-  const [prefs, setPrefs] = useState(() => getPrefs());
+  const { session, loading: authLoading } = useRequireAuth();
+  const [prefs, setPrefs] = useState<OnboardingPrefs>(() => getPrefs());
   const [email, setEmail] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [wiping, setWiping] = useState(false);
 
+  // Load prefs from Supabase (source of truth) + auth info
   useEffect(() => {
-    applyTheme(prefs.theme);
-    supabase.auth.getSession().then(({ data }) => setEmail(data.session?.user.email ?? null));
-  }, [prefs.theme]);
+    if (authLoading || !session) return;
+    const load = async () => {
+      const [{ data: dbPrefs }, { data: { session: s } }] = await Promise.all([
+        supabase.from("onboarding_preferences").select("*").eq("user_id", session.user.id).maybeSingle(),
+        supabase.auth.getSession(),
+      ]);
+      // Real (non-anonymous) users have an email
+      setEmail(s?.user.is_anonymous ? null : s?.user.email ?? null);
 
-  const update = (p: Partial<typeof prefs>) => {
+      if (dbPrefs) {
+        const merged: OnboardingPrefs = {
+          ...defaultPrefs(),
+          best_moments: (dbPrefs.best_moments as string[]) ?? [],
+          main_goal: dbPrefs.main_goal ?? "",
+          notifications_enabled: !!dbPrefs.notifications_enabled,
+          theme: (dbPrefs.theme as "light" | "dark") ?? "light",
+          completed: true,
+        };
+        setPrefs(merged);
+        savePrefs(merged); // refresh local cache
+        applyTheme(merged.theme);
+      } else {
+        applyTheme(prefs.theme);
+      }
+      setReady(true);
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session]);
+
+  if (authLoading || !session || !ready) return <PageShell><div className="h-screen" /></PageShell>;
+
+  const update = (p: Partial<OnboardingPrefs>) => {
     const next = { ...prefs, ...p };
     setPrefs(next);
     savePrefs(p);
+    // Mirror to Supabase (best-effort, fire-and-forget)
+    supabase
+      .from("onboarding_preferences")
+      .upsert({
+        user_id: session.user.id,
+        best_moments: next.best_moments,
+        main_goal: next.main_goal || null,
+        notifications_enabled: next.notifications_enabled,
+        theme: next.theme,
+      })
+      .then(({ error }) => { if (error) console.error("settings sync error:", error); });
   };
 
   const toggleMoment = (id: string) => {
     update({ best_moments: prefs.best_moments.includes(id) ? prefs.best_moments.filter(x => x !== id) : [...prefs.best_moments, id] });
   };
 
-  const wipe = () => {
-    if (!confirm("Effacer toutes tes données locales ? Cette action est définitive.")) return;
+  const wipe = async () => {
+    if (!confirm("Effacer toutes tes données (locales et serveur) ? Cette action est définitive.")) return;
+    setWiping(true);
+    try {
+      // Delete server data first (RLS limits this to the current user's rows)
+      const uid = session.user.id;
+      await Promise.all([
+        supabase.from("checkins").delete().eq("user_id", uid),
+        supabase.from("weekly_summaries").delete().eq("user_id", uid),
+        supabase.from("profile_progress").delete().eq("user_id", uid),
+        supabase.from("onboarding_preferences").delete().eq("user_id", uid),
+      ]);
+    } catch (err) {
+      console.error("wipe server error:", err);
+    }
     clearAll();
+    await supabase.auth.signOut();
     navigate({ to: "/" });
   };
 
@@ -92,10 +150,14 @@ function SettingsPage() {
 
       <Section title="Confidentialité">
         <div className="marge-card p-5 text-sm text-muted-foreground leading-relaxed">
-          Tes points restent sur ton appareil tant que tu ne crées pas de compte. Marge ne partage rien.
+          Tes points sont stockés sur ton compte. Tu peux tout effacer à tout moment.
         </div>
-        <button onClick={wipe} className="mt-3 w-full rounded-full border border-destructive/40 bg-surface py-3 text-sm text-destructive hover:bg-destructive/5">
-          Supprimer toutes mes données
+        <button
+          onClick={wipe}
+          disabled={wiping}
+          className="mt-3 w-full rounded-full border border-destructive/40 bg-surface py-3 text-sm text-destructive hover:bg-destructive/5 disabled:opacity-60"
+        >
+          {wiping ? "Suppression…" : "Supprimer toutes mes données"}
         </button>
       </Section>
 
