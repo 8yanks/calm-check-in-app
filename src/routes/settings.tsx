@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
-import { getPrefs, savePrefs, clearAll, applyTheme, defaultPrefs, type OnboardingPrefs } from "@/lib/marge";
+import { getPrefs, savePrefs, applyTheme, defaultPrefs, resetLocalStateToDefaults, type OnboardingPrefs } from "@/lib/marge";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/use-auth";
 
@@ -96,12 +96,15 @@ function SettingsPage() {
     } catch (err) {
       console.error("wipe server error:", err);
     }
-    clearAll();
+    resetLocalStateToDefaults();
     await supabase.auth.signOut();
     navigate({ to: "/" });
   };
 
   const signOut = async () => {
+    // Reset local state to defaults so the next user (or anon) doesn't inherit
+    // the previous account's theme / moments / notification preferences.
+    resetLocalStateToDefaults();
     await supabase.auth.signOut();
     setEmail(null);
     navigate({ to: "/auth" });

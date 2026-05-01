@@ -154,6 +154,16 @@ export function clearAll() {
   localStorage.removeItem(KEYS.lastResult);
 }
 
+/**
+ * Reset every piece of local state to its default — used on logout/wipe so
+ * the next user (real or anonymous) doesn't inherit the previous account's
+ * theme, moments, notification preferences, or cached checkins.
+ */
+export function resetLocalStateToDefaults() {
+  clearAll();
+  applyTheme("light");
+}
+
 export function profileProgress(checkinsCount: number, prefsCompleted: boolean): number {
   // 10% for prefs, then +6% per checkin up to 90%, capped at 100%
   let pct = prefsCompleted ? 10 : 0;

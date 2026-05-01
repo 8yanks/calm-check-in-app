@@ -3,6 +3,34 @@ import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
+import { applyTheme, savePrefs } from "@/lib/marge";
+
+/**
+ * Pull the user's prefs from Supabase and mirror them into localStorage so the
+ * <head> theme bootstrap script + every route reads the right values from the
+ * very first paint after login. Best-effort — failures fall back to defaults.
+ */
+async function preloadPrefsForUser(userId: string) {
+  try {
+    const { data } = await supabase
+      .from("onboarding_preferences")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!data) return;
+    const theme: "light" | "dark" = data.theme === "dark" ? "dark" : "light";
+    savePrefs({
+      best_moments: (data.best_moments as string[]) ?? [],
+      main_goal: data.main_goal ?? "",
+      notifications_enabled: !!data.notifications_enabled,
+      theme,
+      completed: true,
+    });
+    applyTheme(theme);
+  } catch (err) {
+    console.error("preloadPrefsForUser failed:", err);
+  }
+}
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "Mon compte — Marge" }] }),
@@ -27,13 +55,19 @@ function Auth() {
   useEffect(() => {
     // Only redirect if user has a real (non-anonymous) session.
     // Anonymous users land here to create/sign into a real account — keep them here.
-    supabase.auth.getSession().then(({ data }) => {
+    // Before redirecting, hydrate localStorage with the user's prefs so the
+    // <head> bootstrap script paints the correct theme on the next page load.
+    supabase.auth.getSession().then(async ({ data }) => {
       if (data.session && !data.session.user.is_anonymous) {
+        await preloadPrefsForUser(data.session.user.id);
         window.location.replace(nextPath);
       }
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s && !s.user.is_anonymous) window.location.replace(nextPath);
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
+      if (s && !s.user.is_anonymous) {
+        await preloadPrefsForUser(s.user.id);
+        window.location.replace(nextPath);
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [nextPath]);

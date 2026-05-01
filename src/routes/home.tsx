@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
-import { applyTheme, weeklyInsights, greetingFor, type CheckinRecord } from "@/lib/marge";
+import { applyTheme, savePrefs, weeklyInsights, greetingFor, type CheckinRecord } from "@/lib/marge";
 import { Settings, BarChart3 } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +40,17 @@ function Home() {
         if (!prefs) { navigate({ to: "/onboarding" }); return; }
 
         // Apply theme once based on saved prefs (avoids light→dark flash)
-        applyTheme(prefs.theme === "dark" ? "dark" : "light");
+        const theme: "light" | "dark" = prefs.theme === "dark" ? "dark" : "light";
+        applyTheme(theme);
+        // Mirror Supabase prefs into localStorage so the <head> bootstrap
+        // script picks them up on the next page load (no flash on refresh).
+        savePrefs({
+          best_moments: (prefs.best_moments as string[]) ?? [],
+          main_goal: prefs.main_goal ?? "",
+          notifications_enabled: !!prefs.notifications_enabled,
+          theme,
+          completed: true,
+        });
 
         // 2. Run remaining queries in parallel
         const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
