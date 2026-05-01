@@ -60,7 +60,7 @@ function Home() {
             {last ? "Une minute peut suffire à voir plus clair." : "Quelques questions simples. Une réponse utile, tout de suite."}
           </p>
         </div>
-        <button onClick={() => navigate({ to: "/checkin" })} className="mt-10 w-full rounded-2xl bg-primary py-6 text-lg font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm">
+        <button onClick={() => navigate({ to: "/checkin" })} className="mt-10 w-full rounded-2xl bg-primary py-6 text-lg font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
           Faire un point
         </button>
         {last && (
@@ -104,7 +104,7 @@ function Home() {
           </p>
 
           <div className="mt-10 flex items-center gap-4">
-            <button onClick={() => navigate({ to: "/checkin" })} className="rounded-full bg-primary px-10 py-5 text-base font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm">
+            <button onClick={() => navigate({ to: "/checkin" })} className="rounded-full bg-primary px-10 py-5 text-base font-medium text-primary-foreground transition hover:opacity-95 active:scale-[0.99] shadow-sm cursor-pointer">
               Faire un point
             </button>
             {last && (
