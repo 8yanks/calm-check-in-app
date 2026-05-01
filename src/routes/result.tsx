@@ -56,12 +56,26 @@ function Result() {
 
   if (authLoading || !session || !last) return <PageShell><div className="h-screen" /></PageShell>;
 
-  const stateColor: Record<string, string> = {
+  // Canonical labels from the local fallback have hand-picked colors.
+  // Claude can return any label (e.g. "Surcharge cognitive") — for those we
+  // pick a neutral tone scaled by load_score so the chip still looks intentional.
+  const canonicalColors: Record<string, string> = {
     "léger": "oklch(0.85 0.06 145)",
     "chargé": "oklch(0.82 0.07 90)",
     "tendu": "oklch(0.78 0.09 55)",
     "saturé": "oklch(0.7 0.12 30)",
   };
+  const labelKey = last.state_label?.toLowerCase().trim() ?? "";
+  const colorForScore = (score: number) => {
+    if (score <= 3) return canonicalColors["léger"];
+    if (score <= 6) return canonicalColors["chargé"];
+    if (score <= 8) return canonicalColors["tendu"];
+    return canonicalColors["saturé"];
+  };
+  const stateBg = canonicalColors[labelKey] ?? colorForScore(last.load_score ?? 5);
+  const stateColor: Record<string, string> = new Proxy({} as Record<string, string>, {
+    get: (_t, k) => canonicalColors[String(k).toLowerCase()] ?? stateBg,
+  });
 
   return (
     <WideShell>

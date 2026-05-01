@@ -1,0 +1,12 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#f3efe6"/>
+  <g transform="translate(100, 110)">
+    <rect width="84" height="84" rx="20" fill="#cfe6d8"/>
+    <path d="M18 60 V28 L34 50 L48 28 V60" stroke="#3a6e54" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="65" cy="32" r="5.5" fill="#3a6e54"/>
+  </g>
+  <text x="100" y="320" font-family="Georgia, 'Fraunces', serif" font-size="96" font-weight="500" fill="#1f2a26" letter-spacing="-2">Moins de friction.</text>
+  <text x="100" y="430" font-family="Georgia, 'Fraunces', serif" font-size="96" font-weight="500" fill="#3a6e54" letter-spacing="-2">Plus de marge.</text>
+  <text x="100" y="540" font-family="-apple-system, 'Inter', sans-serif" font-size="28" fill="#5a6660" letter-spacing="0.5">Une compagne calme du quotidien.</text>
+  <text x="1100" y="580" font-family="-apple-system, 'Inter', sans-serif" font-size="20" fill="#8a948f" text-anchor="end" letter-spacing="2">M A R G E</text>
+</svg>
