@@ -1,8 +1,8 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
-  LABELS, deriveState, buildExplanation, buildMicroAction, saveCheckin, getCheckins, isBrowser,
+  LABELS, deriveState, buildExplanation, buildMicroAction, saveCheckin,
   type MentalLoad, type CalmLevel, type Blocker, type Need, type StateLabel,
 } from "@/lib/marge";
 import { analyzeCheckin } from "@/lib/claude";
@@ -28,16 +28,7 @@ function Checkin() {
   const [state, setState] = useState<State>({});
   const [processing, setProcessing] = useState(false);
 
-  const hasCheckins = isBrowser() ? getCheckins().length >= 1 : false;
-
-  // Anonymous users can only do their first quiz
-  useEffect(() => {
-    if (!authLoading && session && isAnonymous && hasCheckins) {
-      navigate({ to: "/auth" });
-    }
-  }, [authLoading, session, isAnonymous, hasCheckins, navigate]);
-
-  if (authLoading || !session || (isAnonymous && hasCheckins)) {
+  if (authLoading || !session) {
     return <PageShell><div className="h-screen" /></PageShell>;
   }
 
