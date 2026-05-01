@@ -3,6 +3,8 @@ import { useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { savePrefs, getPrefs } from "@/lib/marge";
+import { supabase } from "@/integrations/supabase/client";
+import { useRequireAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Bienvenue — Marge" }] }),
@@ -23,17 +25,43 @@ const goals = [
 
 function Onboarding() {
   const navigate = useNavigate();
+  const { session, loading: authLoading } = useRequireAuth();
   const initial = getPrefs();
   const [step, setStep] = useState(0);
   const [selectedMoments, setSelectedMoments] = useState<string[]>(initial.best_moments);
   const [goal, setGoal] = useState<string>(initial.main_goal);
   const [notif, setNotif] = useState<boolean | null>(initial.notifications_enabled ? true : null);
+  const [submitting, setSubmitting] = useState(false);
+
+  if (authLoading || !session) return <WideShell><div className="h-screen" /></WideShell>;
 
   const total = 4;
   const next = () => setStep(s => Math.min(s + 1, total - 1));
   const back = () => setStep(s => Math.max(s - 1, 0));
 
-  const finish = () => {
+  const finish = async () => {
+    setSubmitting(true);
+    try {
+      // Save to Supabase
+      await supabase.from("onboarding_preferences").upsert({
+        user_id: session.user.id,
+        best_moments: selectedMoments,
+        main_goal: goal || null,
+        notifications_enabled: !!notif,
+        theme: "light",
+      });
+      // Initialize profile_progress (upsert = idempotent)
+      await supabase.from("profile_progress").upsert({
+        user_id: session.user.id,
+        percentage: 10,
+        signals_count: 0,
+      });
+    } catch (err) {
+      console.error("Onboarding DB save error:", err);
+      // Continue anyway — we also save locally
+    }
+
+    // Keep localStorage as cache
     savePrefs({
       best_moments: selectedMoments,
       main_goal: goal,
@@ -43,7 +71,7 @@ function Onboarding() {
     navigate({ to: "/home" });
   };
 
-  // Editorial hints for each step — shown in the desktop side column
+  // Editorial hints for each step
   const stepMeta = [
     { eyebrow: "Bienvenue", side: "Marge n'attend rien de toi. Pas d'objectif, pas de score. Juste un endroit calme pour faire un point quand tu en as besoin." },
     { eyebrow: "Comment ça marche", side: "Quelques questions courtes, une lecture claire, une seule action utile. Trente secondes, pas plus." },
@@ -131,8 +159,12 @@ function Onboarding() {
           Continuer
         </button>
       ) : (
-        <button onClick={finish} disabled={notif === null} className="ml-auto rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground disabled:opacity-50 hover:opacity-90">
-          Terminer
+        <button
+          onClick={finish}
+          disabled={notif === null || submitting}
+          className="ml-auto rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground disabled:opacity-50 hover:opacity-90"
+        >
+          {submitting ? "…" : "Terminer"}
         </button>
       )}
     </div>
@@ -170,10 +202,9 @@ function Onboarding() {
         <div className="mt-8">{Actions}</div>
       </div>
 
-      {/* DESKTOP — two-column editorial composition */}
+      {/* DESKTOP — two-column editorial */}
       <div className="hidden lg:block">
         <div className="mt-10 grid grid-cols-12 gap-16 min-h-[70vh]">
-          {/* Left: orientation column */}
           <aside className="col-span-4 flex flex-col justify-between border-r border-border pr-12">
             <div>
               <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
@@ -186,9 +217,7 @@ function Onboarding() {
                 {stepMeta[step].side}
               </p>
             </div>
-
             <div className="space-y-6">
-              {/* Step list, calm and indexed */}
               <ol className="space-y-3 text-sm">
                 {["Bienvenue", "Comment ça marche", "Tes préférences", "Rappels"].map((label, i) => (
                   <li key={label} className="flex items-baseline gap-3">
@@ -204,8 +233,6 @@ function Onboarding() {
               {StepDots}
             </div>
           </aside>
-
-          {/* Right: actual step */}
           <div className="col-span-8 flex flex-col">
             <div className="flex-1 max-w-2xl pt-4">{StepContent}</div>
             <div className="mt-12 max-w-2xl">{Actions}</div>

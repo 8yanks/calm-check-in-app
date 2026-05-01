@@ -1,8 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeMark, MargeWordmark } from "@/components/Logo";
-import { getPrefs, applyTheme } from "@/lib/marge";
+import { applyTheme } from "@/lib/marge";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   component: Welcome,
@@ -10,23 +11,60 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
+  const [checking, setChecking] = useState(true);
+
   useEffect(() => {
-    const p = getPrefs();
-    applyTheme(p.theme);
-    if (p.completed) navigate({ to: "/home" });
+    // Auto-redirect if already authenticated
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { setChecking(false); return; }
+      applyTheme("light");
+      const { data } = await supabase
+        .from("onboarding_preferences")
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      navigate({ to: data ? "/home" : "/onboarding" });
+    });
   }, [navigate]);
+
+  const handleStart = async () => {
+    setStarting(true);
+    // Check for existing session first
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data } = await supabase
+        .from("onboarding_preferences")
+        .select("user_id")
+        .eq("user_id", session.user.id)
+        .maybeSingle();
+      navigate({ to: data ? "/home" : "/onboarding" });
+      return;
+    }
+    // Create anonymous session → onboarding
+    const { error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      console.error("signInAnonymously error:", error);
+      setStarting(false);
+    }
+    // onAuthStateChange in auth.tsx isn't active here — navigate manually
+    navigate({ to: "/onboarding" });
+  };
+
+  // While checking session don't flash the landing
+  if (checking) return <WideShell><div className="h-screen" /></WideShell>;
 
   return (
     <WideShell>
-      {/* Top bar — visible on every breakpoint */}
+      {/* Top bar */}
       <header className="flex items-center justify-between">
         <MargeWordmark />
-        <Link to="/about" className="text-sm text-muted-foreground hover:text-foreground transition">
+        <a href="/about" className="text-sm text-muted-foreground hover:text-foreground transition">
           À propos
-        </Link>
+        </a>
       </header>
 
-      {/* MOBILE hero (unchanged feel) */}
+      {/* MOBILE hero */}
       <div className="lg:hidden flex min-h-[80vh] flex-col mt-6">
         <div className="flex-1 flex flex-col items-center justify-center text-center">
           <div className="mb-10 animate-in fade-in zoom-in-95 duration-700">
@@ -42,16 +80,23 @@ function Welcome() {
           </p>
         </div>
         <div className="space-y-3">
-          <Link to="/onboarding" className="block w-full rounded-full bg-primary py-4 text-center text-base font-medium text-primary-foreground transition hover:opacity-90 active:scale-[0.99]">
-            Commencer
-          </Link>
-          <Link to="/about" className="block w-full rounded-full border border-border bg-surface py-4 text-center text-base text-foreground transition hover:bg-muted">
+          <button
+            onClick={handleStart}
+            disabled={starting}
+            className="block w-full rounded-full bg-primary py-4 text-center text-base font-medium text-primary-foreground transition hover:opacity-90 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+          >
+            {starting ? "…" : "Commencer"}
+          </button>
+          <a
+            href="/about"
+            className="block w-full rounded-full border border-border bg-surface py-4 text-center text-base text-foreground transition hover:bg-muted"
+          >
             En savoir plus
-          </Link>
+          </a>
         </div>
       </div>
 
-      {/* DESKTOP hero — split layout */}
+      {/* DESKTOP hero */}
       <section className="hidden lg:grid grid-cols-12 gap-10 items-center mt-16 min-h-[78vh]">
         {/* Left: editorial copy */}
         <div className="col-span-7 max-w-xl animate-in fade-in slide-in-from-bottom-3 duration-700">
@@ -67,12 +112,16 @@ function Welcome() {
             une action utile, faisable tout de suite.
           </p>
           <div className="mt-10 flex items-center gap-4">
-            <Link to="/onboarding" className="rounded-full bg-primary px-8 py-4 text-base font-medium text-primary-foreground transition hover:opacity-90">
-              Commencer
-            </Link>
-            <Link to="/about" className="text-sm text-foreground/70 hover:text-foreground transition px-4 py-4">
+            <button
+              onClick={handleStart}
+              disabled={starting}
+              className="rounded-full bg-primary px-8 py-4 text-base font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60 cursor-pointer"
+            >
+              {starting ? "…" : "Commencer"}
+            </button>
+            <a href="/about" className="text-sm text-foreground/70 hover:text-foreground transition px-4 py-4">
               En savoir plus →
-            </Link>
+            </a>
           </div>
 
           <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg">
@@ -89,7 +138,7 @@ function Welcome() {
           </div>
         </div>
 
-        {/* Right: supporting visual — a still preview of the app surface */}
+        {/* Right: supporting visual */}
         <div className="col-span-5">
           <div className="relative">
             <div className="absolute -inset-6 rounded-[2.5rem] bg-primary-soft/40 blur-2xl opacity-60" aria-hidden />
