@@ -25,12 +25,15 @@ function Auth() {
   })();
 
   useEffect(() => {
-    // If already signed in (including anonymous sessions), get out of the auth screen.
+    // Only redirect if user has a real (non-anonymous) session.
+    // Anonymous users land here to create/sign into a real account — keep them here.
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.replace(nextPath);
+      if (data.session && !data.session.user.is_anonymous) {
+        window.location.replace(nextPath);
+      }
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
-      if (s) window.location.replace(nextPath);
+      if (s && !s.user.is_anonymous) window.location.replace(nextPath);
     });
     return () => sub.subscription.unsubscribe();
   }, [nextPath]);
