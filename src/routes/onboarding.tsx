@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { WideShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { savePrefs, getPrefs } from "@/lib/marge";
@@ -7,8 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { track } from "@/lib/analytics";
 
+// Optional ?next= param so callers can route the user to /diagnostic, /chat,
+// etc. after onboarding completes. Defaults to /home.
+const onboardingSearch = z.object({ next: z.string().optional() });
+
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Bienvenue — Marge" }] }),
+  validateSearch: onboardingSearch,
   component: Onboarding,
 });
 
@@ -26,6 +32,7 @@ const goals = [
 
 function Onboarding() {
   const navigate = useNavigate();
+  const { next: nextPath } = Route.useSearch();
   const { session, loading: authLoading } = useRequireAuth();
   const initial = getPrefs();
   const [step, setStep] = useState(0);
@@ -91,8 +98,12 @@ function Onboarding() {
       moments_count: selectedMoments.length,
       has_goal: !!goal,
       notifications: !!notif,
+      next: nextPath ?? "/home",
     });
-    navigate({ to: "/home" });
+    // Hand off to the originally-intended destination (e.g. /diagnostic), or
+    // default to /home for the standard "go check in" flow.
+    if (nextPath === "/diagnostic") navigate({ to: "/diagnostic" });
+    else navigate({ to: "/home" });
   };
 
   // Editorial hints for each step

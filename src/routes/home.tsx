@@ -24,6 +24,8 @@ function Home() {
   const [pct, setPct] = useState(0);
   const [recent, setRecent] = useState<CheckinRecord[]>([]);
   const [insights, setInsights] = useState<string[]>([]);
+  const [hasDiagnostic, setHasDiagnostic] = useState(false);
+  const [lastDiagnosticAt, setLastDiagnosticAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading || !session) return;
@@ -60,12 +62,14 @@ function Home() {
           { data: recent3 },
           { count: totalCheckins },
           { data: weekData },
+          { data: lastAssessment },
         ] = await Promise.all([
           supabase.from("profiles").select("display_name").eq("id", session.user.id).maybeSingle(),
           supabase.from("profile_progress").select("percentage, signals_count").eq("user_id", session.user.id).maybeSingle(),
           supabase.from("checkins").select("*").eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(3),
           supabase.from("checkins").select("*", { count: "exact", head: true }).eq("user_id", session.user.id),
           supabase.from("checkins").select("*").eq("user_id", session.user.id).gte("created_at", cutoff),
+          supabase.from("assessments").select("completed_at").eq("user_id", session.user.id).not("completed_at", "is", null).order("completed_at", { ascending: false }).limit(1).maybeSingle(),
         ]);
 
         setDisplayName(profile?.display_name ?? null);
@@ -79,6 +83,11 @@ function Home() {
         }
 
         if (weekData) setInsights(weeklyInsights(weekData as unknown as CheckinRecord[]));
+
+        if (lastAssessment?.completed_at) {
+          setHasDiagnostic(true);
+          setLastDiagnosticAt(lastAssessment.completed_at);
+        }
       } catch (err) {
         console.error("Home load error:", err);
       }
@@ -166,6 +175,25 @@ function Home() {
         <Link to="/week" className="mt-4 block text-center text-sm text-muted-foreground hover:text-foreground py-3">
           Voir mon aperçu de la semaine
         </Link>
+
+        {/* Diagnostic CTA / shortcut on mobile */}
+        {hasDiagnostic ? (
+          <Link to="/diagnostic-result" className="mt-4 marge-card block p-5 hover:border-primary transition">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">Ton profil</div>
+            <div className="mt-1.5 font-display text-base">Revoir ton dernier diagnostic</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {lastDiagnosticAt ? `Réalisé le ${new Date(lastDiagnosticAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}` : ""}
+            </div>
+          </Link>
+        ) : checkinsCount >= 1 && (
+          <Link to="/diagnostic" className="mt-4 marge-card block p-5 hover:border-primary transition border-primary/30">
+            <div className="text-xs uppercase tracking-wider text-primary">Diagnostic complet · 8 min</div>
+            <div className="mt-1.5 font-display text-base leading-snug">Pour aller plus loin.</div>
+            <p className="mt-2 text-xs text-foreground/70 leading-relaxed">
+              Un parcours plus profond pour situer ton stress, ton sommeil, ton énergie.
+            </p>
+          </Link>
+        )}
       </div>
 
       {/* DESKTOP */}
@@ -252,6 +280,29 @@ function Home() {
                 Voir l'aperçu complet →
               </Link>
             </div>
+          )}
+
+          {/* Diagnostic suggestion / shortcut */}
+          {hasDiagnostic ? (
+            <Link to="/diagnostic-result" className="marge-card block p-6 hover:border-primary transition">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Ton profil</div>
+              <div className="mt-2 font-display text-lg leading-snug">Revoir ton dernier diagnostic</div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                Réalisé le {lastDiagnosticAt ? new Date(lastDiagnosticAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "—"}
+              </div>
+              <div className="mt-3 text-sm text-primary">Ouvrir →</div>
+            </Link>
+          ) : checkinsCount >= 1 && (
+            <Link to="/diagnostic" className="marge-card block p-6 hover:border-primary transition border-primary/30">
+              <div className="text-xs uppercase tracking-wider text-primary">Diagnostic complet · 8 min</div>
+              <div className="mt-2 font-display text-lg leading-snug">
+                Pour aller plus loin que les check-ins courts.
+              </div>
+              <p className="mt-2 text-xs text-foreground/70 leading-relaxed">
+                Un parcours plus profond pour situer ton stress, ton sommeil, ton énergie.
+              </p>
+              <div className="mt-3 text-sm text-primary">Commencer →</div>
+            </Link>
           )}
 
           {recent.length > 0 && (

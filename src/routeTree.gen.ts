@@ -15,6 +15,8 @@ import { Route as ResultRouteImport } from './routes/result'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as DiagnosticResultRouteImport } from './routes/diagnostic-result'
+import { Route as DiagnosticRouteImport } from './routes/diagnostic'
 import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
@@ -51,6 +53,16 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DiagnosticResultRoute = DiagnosticResultRouteImport.update({
+  id: '/diagnostic-result',
+  path: '/diagnostic-result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DiagnosticRoute = DiagnosticRouteImport.update({
+  id: '/diagnostic',
+  path: '/diagnostic',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckinRoute = CheckinRouteImport.update({
   id: '/checkin',
   path: '/checkin',
@@ -82,6 +94,8 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
+  '/diagnostic': typeof DiagnosticRoute
+  '/diagnostic-result': typeof DiagnosticResultRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -95,6 +109,8 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
+  '/diagnostic': typeof DiagnosticRoute
+  '/diagnostic-result': typeof DiagnosticResultRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -109,6 +125,8 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
+  '/diagnostic': typeof DiagnosticRoute
+  '/diagnostic-result': typeof DiagnosticResultRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
@@ -124,6 +142,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/checkin'
+    | '/diagnostic'
+    | '/diagnostic-result'
     | '/home'
     | '/library'
     | '/onboarding'
@@ -137,6 +157,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/checkin'
+    | '/diagnostic'
+    | '/diagnostic-result'
     | '/home'
     | '/library'
     | '/onboarding'
@@ -150,6 +172,8 @@ export interface FileRouteTypes {
     | '/about'
     | '/auth'
     | '/checkin'
+    | '/diagnostic'
+    | '/diagnostic-result'
     | '/home'
     | '/library'
     | '/onboarding'
@@ -164,6 +188,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AuthRoute: typeof AuthRoute
   CheckinRoute: typeof CheckinRoute
+  DiagnosticRoute: typeof DiagnosticRoute
+  DiagnosticResultRoute: typeof DiagnosticResultRoute
   HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
@@ -214,6 +240,20 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diagnostic-result': {
+      id: '/diagnostic-result'
+      path: '/diagnostic-result'
+      fullPath: '/diagnostic-result'
+      preLoaderRoute: typeof DiagnosticResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/diagnostic': {
+      id: '/diagnostic'
+      path: '/diagnostic'
+      fullPath: '/diagnostic'
+      preLoaderRoute: typeof DiagnosticRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkin': {
@@ -270,6 +310,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AuthRoute: AuthRoute,
   CheckinRoute: CheckinRoute,
+  DiagnosticRoute: DiagnosticRoute,
+  DiagnosticResultRoute: DiagnosticResultRoute,
   HomeRoute: HomeRoute,
   LibraryRoute: LibraryRouteWithChildren,
   OnboardingRoute: OnboardingRoute,

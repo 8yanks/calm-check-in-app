@@ -38,6 +38,74 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_answers: {
+        Row: {
+          assessment_id: string
+          created_at: string
+          id: string
+          question_key: string
+          value: number
+        }
+        Insert: {
+          assessment_id: string
+          created_at?: string
+          id?: string
+          question_key: string
+          value: number
+        }
+        Update: {
+          assessment_id?: string
+          created_at?: string
+          id?: string
+          question_key?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_answers_assessment_id_fkey"
+            columns: ["assessment_id"]
+            isOneToOne: false
+            referencedRelation: "assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assessments: {
+        Row: {
+          ai_synthesis: Json | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          score_summary: Json
+          started_at: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_synthesis?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          score_summary?: Json
+          started_at?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_synthesis?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          score_summary?: Json
+          started_at?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkins: {
         Row: {
           blocker: string
@@ -233,30 +301,84 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profile_traits: {
+        Row: {
+          computed_at: string
+          fragility_estimate: string | null
+          intensity_avg: number | null
+          last_diagnostic_at: string | null
+          last_weekly_review_at: string | null
+          most_common_blocker: string | null
+          most_common_need: string | null
+          preferred_format: string | null
+          signals: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          computed_at?: string
+          fragility_estimate?: string | null
+          intensity_avg?: number | null
+          last_diagnostic_at?: string | null
+          last_weekly_review_at?: string | null
+          most_common_blocker?: string | null
+          most_common_need?: string | null
+          preferred_format?: string | null
+          signals?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          computed_at?: string
+          fragility_estimate?: string | null
+          intensity_avg?: number | null
+          last_diagnostic_at?: string | null
+          last_weekly_review_at?: string | null
+          most_common_blocker?: string | null
+          most_common_need?: string | null
+          preferred_format?: string | null
+          signals?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       weekly_summaries: {
         Row: {
+          aggravating_factors: Json
           average_load: number | null
           created_at: string
+          helpful_factors: Json
           id: string
           insights: Json
+          narrative: string | null
+          next_week_plan: Json
           updated_at: string
           user_id: string
           week_start: string
         }
         Insert: {
+          aggravating_factors?: Json
           average_load?: number | null
           created_at?: string
+          helpful_factors?: Json
           id?: string
           insights?: Json
+          narrative?: string | null
+          next_week_plan?: Json
           updated_at?: string
           user_id: string
           week_start: string
         }
         Update: {
+          aggravating_factors?: Json
           average_load?: number | null
           created_at?: string
+          helpful_factors?: Json
           id?: string
           insights?: Json
+          narrative?: string | null
+          next_week_plan?: Json
           updated_at?: string
           user_id?: string
           week_start?: string

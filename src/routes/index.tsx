@@ -39,10 +39,16 @@ function Welcome() {
    * Primary CTA: starts an anonymous Supabase session and routes to onboarding.
    * Preserved from MVP — DO NOT replace with /auth redirect, the anonymous flow
    * is core to the "first quiz free" UX and is wired across the app.
+   *
+   * The `intent` controls where the user lands AFTER any required onboarding:
+   *  - "checkin"     → /home (then they tap "Faire un point")
+   *  - "diagnostic"  → /diagnostic
+   *  - "chat"        → /home (chat is V2.3, fall back to home for now)
    */
   const handleStart = async (intent: "checkin" | "diagnostic" | "chat" = "checkin") => {
     setStarting(true);
     track("landing_cta_clicked", { intent });
+    const destination = intent === "diagnostic" ? "/diagnostic" : "/home";
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -51,13 +57,20 @@ function Welcome() {
           .select("user_id")
           .eq("user_id", session.user.id)
           .maybeSingle();
-        navigate({ to: data ? "/home" : "/onboarding" });
+        // If the user has done onboarding, jump straight to their destination.
+        // Otherwise, they need onboarding first and we hand off via ?next=.
+        if (data) {
+          if (destination === "/diagnostic") navigate({ to: "/diagnostic" });
+          else navigate({ to: "/home" });
+        } else {
+          navigate({ to: "/onboarding", search: { next: destination } });
+        }
         return;
       }
       const { error } = await supabase.auth.signInAnonymously();
       if (error) throw error;
       track("anonymous_session_started", { from: "landing", intent });
-      navigate({ to: "/onboarding" });
+      navigate({ to: "/onboarding", search: { next: destination } });
     } catch (err) {
       console.error("handleStart error:", err);
       setStarting(false);
@@ -184,7 +197,8 @@ function Welcome() {
             badge="8–12 min"
             title="Diagnostic complet"
             description="Un parcours plus profond pour situer ton stress, ton énergie, ton sommeil. Profil synthétique et zones de vigilance."
-            cta={{ label: "Bientôt disponible", disabled: true }}
+            cta={{ label: "Faire le diagnostic", onClick: () => handleStart("diagnostic") }}
+            available
           />
           <ModeCard
             badge="Conversation"
