@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { applyTheme, savePrefs, weeklyInsights, greetingFor, type CheckinRecord } from "@/lib/marge";
-import { Settings, BarChart3 } from "lucide-react";
+import { Settings, BarChart3, BookOpen } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -98,6 +98,7 @@ function Home() {
       <header className="flex items-center justify-between">
         <MargeWordmark />
         <div className="flex items-center gap-2">
+          <Link to="/library" aria-label="Bibliothèque" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><BookOpen size={18} /></Link>
           <Link to="/week" aria-label="Semaine" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><BarChart3 size={18} /></Link>
           <Link to="/settings" aria-label="Réglages" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><Settings size={18} /></Link>
         </div>

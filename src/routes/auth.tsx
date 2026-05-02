@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { supabase } from "@/integrations/supabase/client";
 import { applyTheme, savePrefs } from "@/lib/marge";
+import { track } from "@/lib/analytics";
 
 /**
  * Pull the user's prefs from Supabase and mirror them into localStorage so the
@@ -105,6 +106,7 @@ function Auth() {
           // Step 2: set password so the user can sign back in later
           const { error: pwErr } = await supabase.auth.updateUser({ password });
           if (pwErr) throw pwErr;
+          track("user_signed_up", { method: "anon_promotion" });
           setInfo("Compte créé. Vérifie ta boîte mail pour confirmer l'email.");
         } else {
           const { error } = await supabase.auth.signUp({
@@ -112,11 +114,13 @@ function Auth() {
             options: { emailRedirectTo: `${window.location.origin}${nextPath}` },
           });
           if (error) throw error;
+          track("user_signed_up", { method: "email_password" });
           setInfo("Vérifie ta boîte mail pour confirmer ton compte.");
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        track("user_logged_in", { method: "email_password" });
         navigate({ to: nextPath });
       }
     } catch (err: unknown) {

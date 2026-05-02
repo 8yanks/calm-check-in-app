@@ -4,6 +4,7 @@ import { PageShell } from "@/components/PageShell";
 import { getPrefs, savePrefs, applyTheme, defaultPrefs, resetLocalStateToDefaults, type OnboardingPrefs } from "@/lib/marge";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Réglages — Marge" }] }),
@@ -102,6 +103,8 @@ function SettingsPage() {
   };
 
   const signOut = async () => {
+    // Track BEFORE signOut so the event still has a session attached.
+    await track("user_logged_out", {});
     // Reset local state to defaults so the next user (or anon) doesn't inherit
     // the previous account's theme / moments / notification preferences.
     resetLocalStateToDefaults();

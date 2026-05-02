@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PageShell } from "@/components/PageShell";
 import {
   LABELS, deriveState, buildExplanation, buildMicroAction, saveCheckin,
@@ -8,6 +8,7 @@ import {
 import { analyzeCheckin } from "@/lib/claude";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/checkin")({
   head: () => ({ meta: [{ title: "Faire un point — Marge" }] }),
@@ -23,10 +24,15 @@ interface State {
 
 function Checkin() {
   const navigate = useNavigate();
-  const { session, loading: authLoading, isAnonymous } = useRequireAuth();
+  const { session, loading: authLoading } = useRequireAuth();
   const [step, setStep] = useState(0);
   const [state, setState] = useState<State>({});
   const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && session) track("checkin_started", {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session?.user.id]);
 
   if (authLoading || !session) {
     return <PageShell><div className="h-screen" /></PageShell>;
@@ -99,6 +105,7 @@ function Checkin() {
     let explanation: string;
     let microAction: string;
     let loadScore: number;
+    let usedFallback = false;
 
     try {
       const result = await analyzeCheckin({ data: labeledInput });
@@ -108,6 +115,8 @@ function Checkin() {
       loadScore = result.load_score;
     } catch (err) {
       console.error("Claude API failed, using fallback:", err);
+      usedFallback = true;
+      track("checkin_failed", { reason: err instanceof Error ? err.message : "unknown" });
       // Graceful fallback to hardcoded logic
       const derived = deriveState(s.mental_load, s.calm_level);
       stateLabel = derived.label;
@@ -164,6 +173,12 @@ function Checkin() {
       console.error("Supabase save error:", err);
       // Continue — result is already in localStorage
     }
+
+    track("checkin_completed", {
+      state_label: stateLabel,
+      load_score: loadScore,
+      used_fallback: usedFallback,
+    });
 
     navigate({ to: "/result" });
   };

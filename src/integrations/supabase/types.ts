@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      analytics_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          payload: Json
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          payload?: Json
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          payload?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       checkins: {
         Row: {
           blocker: string
@@ -56,6 +80,81 @@ export type Database = {
           state_label?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      content_interactions: {
+        Row: {
+          action: string
+          content_slug: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          content_slug: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          content_slug?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      content_items: {
+        Row: {
+          body: string
+          category: string
+          created_at: string
+          duration_min: number
+          id: string
+          intensity: string
+          published: boolean
+          refs: Json
+          slug: string
+          state_match: string[]
+          summary: string
+          title: string
+          updated_at: string
+          why_helps: string
+        }
+        Insert: {
+          body: string
+          category: string
+          created_at?: string
+          duration_min: number
+          id?: string
+          intensity?: string
+          published?: boolean
+          refs?: Json
+          slug: string
+          state_match?: string[]
+          summary: string
+          title: string
+          updated_at?: string
+          why_helps: string
+        }
+        Update: {
+          body?: string
+          category?: string
+          created_at?: string
+          duration_min?: number
+          id?: string
+          intensity?: string
+          published?: boolean
+          refs?: Json
+          slug?: string
+          state_match?: string[]
+          summary?: string
+          title?: string
+          updated_at?: string
+          why_helps?: string
         }
         Relationships: []
       }

@@ -13,11 +13,13 @@ import { Route as WeekRouteImport } from './routes/week'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResultRouteImport } from './routes/result'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LibrarySlugRouteImport } from './routes/library.$slug'
 
 const WeekRoute = WeekRouteImport.update({
   id: '/week',
@@ -37,6 +39,11 @@ const ResultRoute = ResultRouteImport.update({
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -64,6 +71,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LibrarySlugRoute = LibrarySlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => LibraryRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -71,10 +83,12 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/library/$slug': typeof LibrarySlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -82,10 +96,12 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/library/$slug': typeof LibrarySlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -94,10 +110,12 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/home': typeof HomeRoute
+  '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/library/$slug': typeof LibrarySlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -107,10 +125,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/checkin'
     | '/home'
+    | '/library'
     | '/onboarding'
     | '/result'
     | '/settings'
     | '/week'
+    | '/library/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -118,10 +138,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/checkin'
     | '/home'
+    | '/library'
     | '/onboarding'
     | '/result'
     | '/settings'
     | '/week'
+    | '/library/$slug'
   id:
     | '__root__'
     | '/'
@@ -129,10 +151,12 @@ export interface FileRouteTypes {
     | '/auth'
     | '/checkin'
     | '/home'
+    | '/library'
     | '/onboarding'
     | '/result'
     | '/settings'
     | '/week'
+    | '/library/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,6 +165,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CheckinRoute: typeof CheckinRoute
   HomeRoute: typeof HomeRoute
+  LibraryRoute: typeof LibraryRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
   ResultRoute: typeof ResultRoute
   SettingsRoute: typeof SettingsRoute
@@ -175,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -212,8 +244,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/library/$slug': {
+      id: '/library/$slug'
+      path: '/$slug'
+      fullPath: '/library/$slug'
+      preLoaderRoute: typeof LibrarySlugRouteImport
+      parentRoute: typeof LibraryRoute
+    }
   }
 }
+
+interface LibraryRouteChildren {
+  LibrarySlugRoute: typeof LibrarySlugRoute
+}
+
+const LibraryRouteChildren: LibraryRouteChildren = {
+  LibrarySlugRoute: LibrarySlugRoute,
+}
+
+const LibraryRouteWithChildren =
+  LibraryRoute._addFileChildren(LibraryRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -221,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CheckinRoute: CheckinRoute,
   HomeRoute: HomeRoute,
+  LibraryRoute: LibraryRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
   ResultRoute: ResultRoute,
   SettingsRoute: SettingsRoute,

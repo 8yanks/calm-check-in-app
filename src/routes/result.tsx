@@ -5,6 +5,7 @@ import { MargeWordmark } from "@/components/Logo";
 import { getLastResult, getCheckins, getPrefs, profileProgress, type CheckinRecord } from "@/lib/marge";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { recommendForState, type ContentItem } from "@/lib/content";
 
 export const Route = createFileRoute("/result")({
   head: () => ({ meta: [{ title: "Ton point — Marge" }] }),
@@ -16,6 +17,7 @@ function Result() {
   const { session, loading: authLoading, isAnonymous } = useRequireAuth();
   const [last, setLast] = useState<CheckinRecord | null>(null);
   const [pct, setPct] = useState(0);
+  const [recos, setRecos] = useState<ContentItem[]>([]);
 
   useEffect(() => {
     if (authLoading || !session) return;
@@ -53,6 +55,12 @@ function Result() {
 
     load();
   }, [authLoading, session, navigate]);
+
+  // Once we know the user's state, fetch matching content recommendations.
+  useEffect(() => {
+    if (!last?.state_label) return;
+    recommendForState(last.state_label, { limit: 3, maxDuration: 10 }).then(setRecos);
+  }, [last?.state_label]);
 
   if (authLoading || !session || !last) return <PageShell><div className="h-screen" /></PageShell>;
 
@@ -108,6 +116,29 @@ function Result() {
           </div>
           <div className="mt-2 text-xs text-muted-foreground">Profil en construction · {pct}%</div>
         </div>
+
+        {/* Recommendations matching the user's state */}
+        {recos.length > 0 && (
+          <div className="mt-8">
+            <div className="text-[11px] uppercase tracking-wider text-muted-foreground">Pour aller plus loin</div>
+            <div className="mt-3 space-y-2">
+              {recos.map((c) => (
+                <Link
+                  key={c.slug}
+                  to="/library/$slug"
+                  params={{ slug: c.slug }}
+                  className="marge-card block p-4 hover:border-primary transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-display text-base">{c.title}</div>
+                    <div className="text-[11px] text-muted-foreground tabular-nums">{c.duration_min} min</div>
+                  </div>
+                  <p className="mt-1 text-xs text-foreground/70 leading-relaxed">{c.summary}</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {isAnonymous ? (
           <div className="mt-8 rounded-2xl border border-primary/40 bg-primary/5 p-5">
@@ -175,6 +206,28 @@ function Result() {
             </div>
             <div className="mt-2 text-xs text-muted-foreground">Profil en construction · {pct}%</div>
           </div>
+
+          {recos.length > 0 && (
+            <div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground mb-3">Pour aller plus loin</div>
+              <div className="space-y-2">
+                {recos.map((c) => (
+                  <Link
+                    key={c.slug}
+                    to="/library/$slug"
+                    params={{ slug: c.slug }}
+                    className="marge-card block p-5 hover:border-primary transition group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-display text-base group-hover:text-primary transition">{c.title}</div>
+                      <div className="text-[11px] text-muted-foreground tabular-nums">{c.duration_min} min</div>
+                    </div>
+                    <p className="mt-1.5 text-xs text-foreground/70 leading-relaxed">{c.summary}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           {isAnonymous && (
             <div className="rounded-2xl border border-primary/40 bg-primary/5 p-6">

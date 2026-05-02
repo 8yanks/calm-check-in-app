@@ -1,10 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeMark } from "@/components/Logo";
 import { savePrefs, getPrefs } from "@/lib/marge";
 import { supabase } from "@/integrations/supabase/client";
 import { useRequireAuth } from "@/hooks/use-auth";
+import { track } from "@/lib/analytics";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Bienvenue — Marge" }] }),
@@ -32,6 +33,11 @@ function Onboarding() {
   const [goal, setGoal] = useState<string>(initial.main_goal);
   const [notif, setNotif] = useState<boolean | null>(initial.notifications_enabled ? true : null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && session) track("onboarding_started", {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, session?.user.id]);
 
   if (authLoading || !session) return <WideShell><div className="h-screen" /></WideShell>;
 
@@ -80,6 +86,11 @@ function Onboarding() {
       main_goal: goal,
       notifications_enabled: !!notif,
       completed: true,
+    });
+    track("onboarding_completed", {
+      moments_count: selectedMoments.length,
+      has_goal: !!goal,
+      notifications: !!notif,
     });
     navigate({ to: "/home" });
   };
