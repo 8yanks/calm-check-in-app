@@ -10,6 +10,9 @@ import {
   type Category,
   type DurationBucket,
 } from "@/lib/content";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { hasFeature } from "@/lib/entitlements";
+import { PremiumLock } from "@/components/Paywall";
 
 export const Route = createFileRoute("/library")({
   head: () => ({
@@ -30,6 +33,8 @@ function Library() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<Category | null>(null);
   const [bucket, setBucket] = useState<DurationBucket | null>(null);
+  const { entitlement } = useEntitlements();
+  const canPremium = hasFeature(entitlement, "library_premium");
 
   useEffect(() => {
     setLoading(true);
@@ -103,9 +108,15 @@ function Library() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-            {items.map((item) => (
-              <ContentCard key={item.slug} item={item} />
-            ))}
+            {items.map((item) => {
+              const locked = item.tier === "premium" && !canPremium;
+              const card = <ContentCard item={item} locked={locked} />;
+              return locked ? (
+                <PremiumLock key={item.slug}>{card}</PremiumLock>
+              ) : (
+                <div key={item.slug}>{card}</div>
+              );
+            })}
           </div>
         )}
       </section>
@@ -136,13 +147,16 @@ function Pill({
   );
 }
 
-function ContentCard({ item }: { item: ContentItem }) {
+function ContentCard({ item, locked }: { item: ContentItem; locked: boolean }) {
   const categoryLabel = CATEGORIES[item.category as Category] ?? item.category;
   return (
     <Link
       to="/library/$slug"
       params={{ slug: item.slug }}
       className="marge-card p-6 hover:border-primary transition group flex flex-col"
+      // When locked, the surrounding PremiumLock applies pointer-events:none on the
+      // visual; the wrapper Link still works on click via the lock overlay click.
+      tabIndex={locked ? -1 : 0}
     >
       <div className="flex items-center justify-between text-[11px] uppercase tracking-wider">
         <span className="text-primary">{categoryLabel}</span>
@@ -155,7 +169,7 @@ function ContentCard({ item }: { item: ContentItem }) {
         {item.summary}
       </p>
       <div className="mt-5 text-sm text-primary opacity-0 group-hover:opacity-100 transition">
-        Ouvrir →
+        {locked ? "Aperçu →" : "Ouvrir →"}
       </div>
     </Link>
   );

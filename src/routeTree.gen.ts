@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WeekRouteImport } from './routes/week'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResultRouteImport } from './routes/result'
+import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as HomeRouteImport } from './routes/home'
@@ -36,6 +37,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResultRoute = ResultRouteImport.update({
   id: '/result',
   path: '/result',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PricingRoute = PricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRouteWithChildren
   '/onboarding': typeof OnboardingRoute
+  '/pricing': typeof PricingRoute
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/onboarding'
+    | '/pricing'
     | '/result'
     | '/settings'
     | '/week'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/onboarding'
+    | '/pricing'
     | '/result'
     | '/settings'
     | '/week'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/onboarding'
+    | '/pricing'
     | '/result'
     | '/settings'
     | '/week'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRouteWithChildren
   OnboardingRoute: typeof OnboardingRoute
+  PricingRoute: typeof PricingRoute
   ResultRoute: typeof ResultRoute
   SettingsRoute: typeof SettingsRoute
   WeekRoute: typeof WeekRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/result'
       fullPath: '/result'
       preLoaderRoute: typeof ResultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pricing': {
+      id: '/pricing'
+      path: '/pricing'
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -315,6 +335,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LibraryRoute: LibraryRouteWithChildren,
   OnboardingRoute: OnboardingRoute,
+  PricingRoute: PricingRoute,
   ResultRoute: ResultRoute,
   SettingsRoute: SettingsRoute,
   WeekRoute: WeekRoute,

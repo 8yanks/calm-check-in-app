@@ -38,6 +38,13 @@ export type EventName =
   | "chat_opened"             // reserved for V2.3
   | "chat_message_sent"       // reserved for V2.3
   | "chat_session_ended"      // reserved for V2.3
+  // Premium / paywall (V2.3.0+)
+  | "paywall_viewed"
+  | "paywall_cta_clicked"
+  | "pricing_viewed"
+  | "subscription_checkout_started"  // reserved for V2.3.4
+  | "subscription_activated"         // reserved for V2.3.4
+  | "subscription_canceled"          // reserved for V2.3.4
   | "feature_feedback_submitted";
 
 /** Fire-and-forget event tracking. Never throws. */

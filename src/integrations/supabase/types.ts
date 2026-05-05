@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -187,7 +185,9 @@ export type Database = {
           refs: Json
           slug: string
           state_match: string[]
+          status: string
           summary: string
+          tier: string
           title: string
           updated_at: string
           why_helps: string
@@ -203,7 +203,9 @@ export type Database = {
           refs?: Json
           slug: string
           state_match?: string[]
+          status?: string
           summary: string
+          tier?: string
           title: string
           updated_at?: string
           why_helps: string
@@ -219,7 +221,9 @@ export type Database = {
           refs?: Json
           slug?: string
           state_match?: string[]
+          status?: string
           summary?: string
+          tier?: string
           title?: string
           updated_at?: string
           why_helps?: string
@@ -298,6 +302,72 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      stripe_events: {
+        Row: {
+          id: string
+          payload: Json | null
+          processed_at: string
+          type: string
+        }
+        Insert: {
+          id: string
+          payload?: Json | null
+          processed_at?: string
+          type: string
+        }
+        Update: {
+          id?: string
+          payload?: Json | null
+          processed_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          features_excluded: Json
+          plan: string
+          purchased_at: string | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          trial_end: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          features_excluded?: Json
+          plan?: string
+          purchased_at?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          features_excluded?: Json
+          plan?: string
+          purchased_at?: string | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          trial_end?: string | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

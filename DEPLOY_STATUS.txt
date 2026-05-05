@@ -1,0 +1,658 @@
+═══════════════════════════════════════════════════════════════════════
+MARGE — CHECKLIST DÉPLOIEMENT FINAL + ROADMAP V2
+État au 2026-05-03 · post V2.3.0 livré
+═══════════════════════════════════════════════════════════════════════
+
+LÉGENDE :
+  [x] Fait par Claude (code + config DB déjà en place)
+  [ ] À faire par l'humain (impossible depuis le code)
+  [~] Partiel / à vérifier manuellement
+
+
+═══════════════════════════════════════════════════════════════════════
+🔧 INFRA & CONFIG
+═══════════════════════════════════════════════════════════════════════
+
+[x] Cloudflare — nodejs_compat dans wrangler.jsonc
+    → Vérifié : compatibility_flags: ["nodejs_compat"], compatibility_date: 2025-09-24
+[x] Cloudflare — Build command = npm run build
+    → package.json: "build": "vite build && node build-worker.mjs"
+[x] Cloudflare — Output directory = dist/client
+    → build-worker.mjs prépare correctement dist/client/
+[x] Cloudflare — dist/client/_worker.js valide et chargé comme entry SSR
+    → Build local OK, worker ≈ 741.6 KB (sous la limite CF Pages, croissance maîtrisée
+      après V2.1 + V2.2)
+[ ] Cloudflare — Secret ANTHROPIC_API_KEY ajouté
+    → CF Pages dashboard → Settings → Variables and Secrets → + Add
+    → Nécessaire pour : analyzeCheckin, analyzeDiagnostic, generateWeeklyReview
+    → Sans cette clé : tous les flows IA fonctionnent en mode fallback hardcodé
+[~] Cloudflare — Secret SUPABASE_SERVICE_ROLE_KEY
+    → Optionnel : nécessaire UNIQUEMENT si du code utilise client.server.ts
+    → Aucun code en V2.2 ne l'utilise → peut être laissé vide
+[ ] Supabase — SSL Enforcement = ON
+    → Dashboard → Settings → Database → SSL Enforcement → toggle ON
+[ ] Supabase — Network Restrictions configurées (optionnel)
+[ ] Supabase — MFA activé sur le compte owner/admin
+    → Dashboard → Account → Two-Factor Authentication
+[ ] Supabase Auth — Site URL = URL de prod exacte
+    → Dashboard → Authentication → URL Configuration → Site URL
+    → Mettre : https://marge-app.pages.dev (ou domaine custom final)
+[ ] Supabase Auth — Redirect URLs (prod + preview URLs)
+    → Au minimum :
+      - https://marge-app.pages.dev/**
+      - https://*.marge-app.pages.dev/**  (pour les previews CF Pages)
+      - https://[domaine-custom]/**       (si applicable)
+[ ] Supabase Auth — Domaine exact cohérent partout (https, slashs)
+
+
+═══════════════════════════════════════════════════════════════════════
+🎮 FLUX INVITÉ
+═══════════════════════════════════════════════════════════════════════
+
+[x] Landing → "Commencer" → signInAnonymously() → pas de redirection vers login
+    → src/routes/index.tsx handleStart() : crée la session anon puis navigue
+[x] La session anonyme est bien reconnue par le guard
+    → use-auth.ts : isAnonymous: session?.user?.is_anonymous === true
+[x] L'utilisateur invité peut atteindre l'onboarding
+    → /onboarding accepte les sessions anon (pas de gate strict)
+[x] L'utilisateur invité peut atteindre le dashboard/check-in sans boucle d'auth
+[x] Premier quiz gratuit : /home affiche l'upsell après 1+ checkin via Supabase count
+[x] V2.1 — La landing offre maintenant 3 portes d'entrée :
+    → "Check-in express" (active)
+    → "Diagnostic complet" (active depuis V2.2)
+    → "Parler à Marge" (placeholder, V2.3)
+    Toutes respectent le démarrage anonyme via handleStart(intent)
+
+
+═══════════════════════════════════════════════════════════════════════
+📝 ONBOARDING
+═══════════════════════════════════════════════════════════════════════
+
+[x] Étape — Meilleurs moments → best_moments: text[]
+[x] Étape — Objectif principal → main_goal
+[x] Étape — Rappels → notifications_enabled
+[x] POST onboarding_preferences fonctionne (onConflict: "user_id" requis car PK
+    sur id, UNIQUE sur user_id)
+[x] profile_progress créé/mis à jour (ignoreDuplicates: true pour ne pas écraser
+    un compte existant)
+[x] V2.2 — /onboarding accepte un ?next= pour rediriger vers l'intent initial
+    (ex. /diagnostic après onboarding) sans casser la valeur par défaut /home
+
+
+═══════════════════════════════════════════════════════════════════════
+🧠 CHECK-IN IA EXPRESS (cœur produit MVP)
+═══════════════════════════════════════════════════════════════════════
+
+[x] 4 questions : mental_load, calm_level, blocker, immediate_need
+[x] Server function analyzeCheckin (Anthropic claude-3-5-haiku, max_tokens: 500)
+[x] Retour JSON parsé : state_label, explanation, micro_action, load_score
+[x] Insert checkins + incrément profile_progress.signals_count
+[x] Fallback hardcodé si IA down (deriveState/buildExplanation/buildMicroAction)
+[x] V2.1 — Result page propose maintenant des contenus de la bibliothèque
+    correspondant à state_label (recommendForState)
+
+
+═══════════════════════════════════════════════════════════════════════
+📚 BIBLIOTHÈQUE DE CONTENUS (V2.1)
+═══════════════════════════════════════════════════════════════════════
+
+[x] Table content_items (lecture publique, RLS published=true)
+[x] Table content_interactions (RLS own SELECT/INSERT/DELETE)
+[x] 13 contenus seedés sur 8 catégories :
+    respiration, recentrage, surcharge, rumination, sommeil, energie, routine, guide
+[x] Route /library — index avec filtres catégorie + durée
+[x] Route /library/$slug — détail avec rendu markdown léger, "Pourquoi ça aide",
+    references, tracking "viewed/completed"
+[x] Recommandations contextuelles depuis /result (3 contenus matching state)
+[x] Lien Bibliothèque dans le header /home
+
+
+═══════════════════════════════════════════════════════════════════════
+🩺 DIAGNOSTIC COMPLET (V2.2)
+═══════════════════════════════════════════════════════════════════════
+
+[x] Table assessments + assessment_answers (RLS own + ownership via FK)
+[x] Table user_profile_traits (signaux dérivés pour personnalisation)
+[x] 12 questions sur 10 domaines : stress, anxiety, energy, sleep, cognition,
+    irritability, social, recovery, pleasure, outlook
+[x] Inspiré de PSS-10 / GAD-7 / WHO-5 / CD-RISC-10, reformulé en FR bienveillant
+[x] src/lib/diagnostic.ts : scoring, normalisation reverse-coding, buckets
+    (calme/modéré/élevé/intense)
+[x] Route /diagnostic — questionnaire avec sections, progress bar, back navigation
+[x] Server function analyzeDiagnostic (tone-aware, max_tokens: 1200)
+    → profile_summary, intensity_label, vigilance_zones, protective_factors,
+       recommendations (avec content_slug pointers), next_step
+[x] Fallback synthesis local si Claude down (jamais d'écran d'erreur)
+[x] Route /diagnostic-result — profil éditorial avec barres par domaine,
+    zones de vigilance, facteurs protecteurs, recommandations ordonnées,
+    prochain pas
+[x] CTA actif sur landing (/) + home (carte conditionnelle si 1+ checkin)
+[x] Profile_progress.signals_count incrémenté (+3 par diagnostic)
+
+
+═══════════════════════════════════════════════════════════════════════
+📅 BILAN HEBDOMADAIRE (V2.2)
+═══════════════════════════════════════════════════════════════════════
+
+[x] Table weekly_summaries étendue : narrative, helpful_factors,
+    aggravating_factors, next_week_plan
+[x] UNIQUE (user_id, week_start) pour upsert sûrs sur regenerate
+[x] src/lib/weekly.ts : agrégateur pur (daily buckets, time-of-day,
+    dominantes, tendance, recent_excerpts)
+[x] Server function generateWeeklyReview (tone-aware, max_tokens: 1200)
+    → narrative, helpful_factors, aggravating_factors, next_week_plan, insights
+[x] Route /week refonte :
+    - graphique tendance 7 jours (préservé)
+    - bouton "Générer mon bilan" (à partir de 2+ checkins)
+    - cache dans weekly_summaries
+    - bouton "Régénérer" pour rafraîchir
+    - narrative + helpful/aggravating + plan en colonnes
+    - fallback heuristique (weeklyInsights) si pas encore de bilan IA
+[x] last_weekly_review_at trackée dans user_profile_traits
+
+
+═══════════════════════════════════════════════════════════════════════
+🎯 PERSONNALISATION ADAPTATIVE (V2.2)
+═══════════════════════════════════════════════════════════════════════
+
+[x] Table user_profile_traits : intensity_avg, fragility_estimate (stable/
+    modéré/fragile), preferred_format (court/moyen/long), most_common_need,
+    most_common_blocker, last_diagnostic_at, last_weekly_review_at
+[x] src/lib/personalization.ts : deriveTraits (règles simples, transparentes),
+    recomputeAndStoreTraits (recalcul à la demande), pickTone (neutre /
+    rassurant / structuré)
+[x] Tone passé aux prompts Claude (analyzeDiagnostic + generateWeeklyReview)
+[x] Recalcul automatique en background après chaque diagnostic
+[x] Architecture extensible (les règles peuvent être enrichies sans toucher
+    aux call sites)
+
+
+═══════════════════════════════════════════════════════════════════════
+📊 ANALYTICS (V2.1)
+═══════════════════════════════════════════════════════════════════════
+
+[x] Table analytics_events (insert-only, RLS own, pas de SELECT pour
+    end-users — privacy + reduces leak surface)
+[x] src/lib/analytics.ts : helper track() typé, fire-and-forget,
+    silently no-ops sans session
+[x] Events branchés sur les flows critiques :
+    - user_signed_up / user_logged_in / user_logged_out
+    - anonymous_session_started / landing_cta_clicked
+    - onboarding_started / onboarding_completed
+    - checkin_started / checkin_completed / checkin_failed
+    - diagnostic_started / diagnostic_completed
+    - weekly_review_generated / weekly_review_viewed
+    - content_viewed / content_completed
+[~] Events réservés (V2.3) :
+    - chat_opened / chat_message_sent / chat_session_ended
+    - feature_feedback_submitted
+
+
+═══════════════════════════════════════════════════════════════════════
+🗺️  V2.3 — AUDIT STRATÉGIQUE + DÉCISIONS FIGÉES (2026-05-03)
+═══════════════════════════════════════════════════════════════════════
+
+V2.3 a été redécoupé en 6 phases livrables séparément.
+Toutes les questions bloquantes ont été tranchées par l'humain.
+
+DÉCISIONS PRODUIT FIGÉES (ne pas modifier sans nouvelle décision) :
+
+PRICING
+  - Free
+  - €7.99 / mois
+  - €59.99 / an  ← OFFRE MISE EN AVANT
+  - €79.99 lifetime (paiement unique, option secondaire)
+  L'annuel reste l'offre recommandée. Le lifetime est présenté comme
+  "accès à vie au plan Marge Plus actuel". Les futures features à coût
+  d'infrastructure élevé peuvent être exclues du lifetime, mais cela
+  doit être explicite et cohérent dans la copy de la pricing page.
+
+TRIAL
+  - 7 jours d'accès complet à la première souscription.
+
+CHAT FREE
+  - 5 messages / jour.
+  - Compte réel requis pour le chat persistant (pas d'anon persistant).
+
+LIBRARY
+  - Curation : ne garder que les contenus réellement prêts et substantiels.
+  - Réduire le faux volume.
+  - Si un contenu est vide ou trop faible : retirer ou archiver.
+  - Préférer peu de contenus excellents à beaucoup de faibles.
+
+STRIPE
+  - Démarrer en TEST MODE.
+  - Live seulement quand les flows sont validés.
+
+STREAMING CHAT
+  - PAS dans la première version.
+  - Non-streaming d'abord, streaming plus tard si la base est stable.
+
+INVESTIGATION LIBRARY PROD VIDE (résolu 2026-05-03)
+  - Investigation effectuée : la library s'affiche correctement en prod.
+    Les 13 contenus seedés sont bien visibles. Le rapport initial était
+    transient (cache CDN, deploy en cours, ou race au premier load).
+    Aucune correction de code nécessaire.
+
+AUTRES DÉCISIONS (issues de l'audit, validées implicitement)
+  - PAYWALL TRIGGERS (5) : post-bilan, post-diagnostic, contenu premium,
+    7+ check-ins, ouverture chat.
+  - ENTITLEMENTS : un seul helper centralisé (hasFeature / requireFeature).
+    Frontend = cosmétique, backend = source de vérité.
+  - SAFETY : couche obligatoire AVANT chat. risk_events sur tout déclenchement.
+  - STRIPE webhook : idempotent via stripe_events table, écritures
+    service_role only sur subscriptions / user_entitlements.
+
+Phases proposées :
+
+  V2.3.0  Curation library + architecture entitlements    3-5 j
+  V2.3.1  Quota IA + cap diagnostic                       2 j
+  V2.3.2  Safety layer                                    2-3 j
+  V2.3.3  Chat IA "Parler à Marge"                        5-7 j
+  V2.3.4  Stripe + entitlements live                      5-7 j
+  V2.3.5  Polish & instrumentation finale                 1-2 j
+
+Total estimé : 18-26 j équivalent solo.
+
+Audit complet et roadmap détaillée : voir le message "Audit + Roadmap V2.3"
+dans la session du 2026-05-03 (10 sections).
+
+
+═══════════════════════════════════════════════════════════════════════
+📚 V2.3.0 — CURATION LIBRARY + ARCHITECTURE ENTITLEMENTS  ✅ LIVRÉ
+═══════════════════════════════════════════════════════════════════════
+
+[x] ALTER content_items : ajouter tier ('free'|'premium') + status
+    ('draft'|'published'|'archived'). published conservé pour rétro-compat.
+[x] Index partiels (category, duration_min) et (tier) WHERE status='published'
+[x] Curation des 13 contenus appliquée :
+    KEEP FREE (5)     : respiration-4-6, ancrage-5-sens, vider-papier,
+                        surcharge-priorise, routine-matin-2min
+    MARK PREMIUM (6)  : main-poitrine, micro-marche, rumination-sortir,
+                        energie-basse, sommeil-coupe, comprendre-charge
+    ARCHIVED (2)      : signaux-faibles, pourquoi-marge
+[x] Nouvelle table subscriptions (PK user_id, stripe_customer_id UNIQUE,
+    stripe_subscription_id NULL, plan, status, current_period_end NULL,
+    trial_end NULL, purchased_at NULL, cancel_at_period_end,
+    features_excluded jsonb)
+    → lifetime compatible: stripe_subscription_id NULL, purchased_at SET
+    → RLS : SELECT own only ; INSERT/UPDATE/DELETE service_role only
+[x] Nouvelle table stripe_events (PK = Stripe event id, idempotence webhook)
+    → RLS : aucune policy = service_role only
+[x] PAS de table user_entitlements (dérivation à la volée — source unique
+    via subscriptions ; cache rajoutable plus tard sans casser l'API)
+[x] RLS content_items mise à jour : USING (status='published')
+    (au lieu de published=true)
+[x] src/lib/entitlements.ts :
+    - Plan, SubscriptionStatus, Feature, Entitlement types
+    - getEntitlementFromRow() : fonction pure
+    - hasFeature(), isPremium() helpers
+    - fetchMyEntitlement() côté client (RLS-protected)
+    - requireFeature() côté serveur (throw avec code FEATURE_REQUIRED)
+    - PRICING constants (single source of truth)
+    - features_excluded supporté (lifetime peut exclure des features
+      cost-heavy)
+[x] Hook src/hooks/use-entitlements.ts : refetch sur auth state change
+[x] Composant src/components/Paywall.tsx :
+    - <Paywall feature> : gate complet d'un sous-arbre
+    - <PaywallCard> : carte CTA avec impression analytics
+    - <PremiumLock> : overlay visuel pour cards en liste
+    - FEATURE_COPY centralisé (aucun copy dispersé dans les composants)
+[x] /library : cards premium wrappées dans <PremiumLock> si non-entitled,
+    tri free-first, query filtrée sur status='published'
+[x] /library/$slug : preview du 1er paragraphe + fade + <PaywallCard>
+    si premium && non-entitled. Badge "Marge Plus" dans la meta line.
+[x] /pricing : page vitrine complète (free/mensuel/annuel/lifetime)
+    avec annual-first, copywriting non-anxiogène, CTAs disabled
+    "Bientôt disponible" jusqu'à V2.3.4
+[x] Events analytics : paywall_viewed, paywall_cta_clicked, pricing_viewed
+[x] Events réservés V2.3.4 : subscription_checkout_started,
+    subscription_activated, subscription_canceled
+[x] tsc --noEmit propre, build prod réussi (worker = 741.64 KB)
+
+
+═══════════════════════════════════════════════════════════════════════
+⏱️  V2.3.1 — QUOTA IA + CAP DIAGNOSTIC
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Nouvelle table ai_usage (id, user_id, fn, tokens_used, created_at)
+    OU vue Postgres pour compter par fenêtre glissante
+[ ] Wrapper withQuota(fn, limits) côté serveur
+[ ] Cap diagnostic : 1 / 90j en free, illimité en premium
+[ ] UI propre quand bloqué (jamais anxiogène)
+[ ] Décision fail-open en free (logguer + alerter)
+
+
+═══════════════════════════════════════════════════════════════════════
+🛡️  V2.3.2 — SAFETY LAYER
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Nouvelle table risk_events (id, user_id NULL, level, source,
+    trigger_phrase NULL, action_taken, context jsonb, created_at)
+    RLS : INSERT-own, no SELECT pour end-user
+[ ] src/lib/safety.ts (côté SERVER) : lexique FR signaux crise,
+    niveaux attention/elevated/urgent, réponses fallback,
+    detectRisk() + buildEmergencyResponse() + logRiskEvent()
+[ ] Composant <EmergencyResources> (3114, SOS Amitié 09 72 39 40 50, etc.)
+[ ] Tests unitaires : faux positifs, faux négatifs, casse, accents
+[ ] Pas branché au chat encore (le chat n'existe pas)
+
+
+═══════════════════════════════════════════════════════════════════════
+🤖 V2.3.3 — CHAT IA "PARLER À MARGE"
+═══════════════════════════════════════════════════════════════════════
+
+DÉCISIONS FIGÉES :
+  - 5 messages / jour pour les comptes free
+  - 50 messages / mois pour les comptes Marge Plus
+  - Compte réel obligatoire (pas d'anon persistant)
+  - Non-streaming dans la première version, streaming reporté plus tard
+
+[ ] Nouvelle table chat_sessions (id, user_id, started_at, ended_at,
+    summary, tokens_used, message_count)
+[ ] Nouvelle table chat_messages (id, session_id, role, content,
+    tokens_in, tokens_out, safety_flag NULL, created_at)
+[ ] src/lib/agent.ts : buildSystemPrompt (traits + 3 derniers checkins
+    + dernier diagnostic résumé), prompt caching activé
+[ ] Server fn chatTurn(sessionId, message) :
+    safety.preCheck → buildContext → callClaude → safety.postCheck → persist
+[ ] Mode non-streaming pour la 1ère version (réponse complète d'un coup,
+    UI affiche un état "Marge écrit…" pendant l'attente)
+[ ] Route /chat avec UI minimaliste (input + bulles, historique,
+    bouton "Nouvelle conversation")
+[ ] Comptes authentifiés UNIQUEMENT (anon redirigé /auth?next=/chat)
+[ ] Gating premium : free 5 msg/jour, premium 50/mois (compteur visible)
+[ ] System prompt strict : jamais posture thérapeutique, jamais diagnostic
+[ ] Events : chat_opened, chat_message_sent, chat_session_ended,
+    chat_quota_blocked
+
+
+═══════════════════════════════════════════════════════════════════════
+💳 V2.3.4 — STRIPE + ENTITLEMENTS LIVE
+═══════════════════════════════════════════════════════════════════════
+
+PRICING (figé) :
+  - Free
+  - €7.99 / mois
+  - €59.99 / an  (mis en avant)
+  - €79.99 lifetime (paiement unique, présenté comme accès à vie au
+    plan Marge Plus actuel ; futures features infra-heavy excludables)
+
+[ ] Trial 7 jours d'accès complet à la 1ère souscription (figé)
+[ ] Server route /api/stripe/webhook (vérifie signature, idempotent)
+[ ] src/lib/stripe.ts (helpers checkout + portal)
+[ ] Webhook gère 2 chemins :
+    - customer.subscription.* (mensuel + annuel) → mode='subscription'
+    - checkout.session.completed avec mode='payment' (lifetime)
+[ ] Schéma subscriptions adapté lifetime :
+    - plan = 'monthly' | 'annual' | 'lifetime'
+    - subscription_id NULL pour lifetime
+    - current_period_end NULL pour lifetime
+    - purchased_at pour lifetime
+    - status = 'active' permanent pour lifetime
+[ ] Webhook → upsert subscriptions + user_entitlements (service_role only)
+[ ] Page /pricing (annual-first, lifetime comme option secondaire,
+    copy claire sur le périmètre lifetime, sans countdown anxiogène)
+[ ] Page /account/billing (cancel via Stripe Customer Portal pour les
+    abonnements ; lifetime affiché comme "non résiliable")
+[ ] Tous les hasFeature() frontend = cosmétiques uniquement
+[ ] Le vrai gating se fait dans les server functions via requireFeature()
+[ ] Démarrer en TEST MODE Stripe, basculer live quand validé
+[ ] Tests : checkout test mode subscription → webhook → entitlements MAJ
+[ ] Tests : checkout test mode lifetime (one-time payment) → entitlements
+    plan_active permanent
+[ ] Tests : cancel subscription → expiration à period_end
+[ ] Tests : trial 7j → charge → renew
+[ ] Webhook idempotent via stripe_events table (PK = event id)
+
+
+═══════════════════════════════════════════════════════════════════════
+🎯 V2.3.5 — POLISH & INSTRUMENTATION FINALE
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Events : subscription_checkout_started, subscription_activated,
+    subscription_canceled, feature_feedback_submitted
+[ ] Vue admin minimale (queries SQL Supabase) pour suivre :
+    DAU/WAU/MAU, rétention, conversion premium, performance paywalls
+[ ] Copywriting paywall final
+[ ] QA E2E complet sur les 5 phases
+
+
+═══════════════════════════════════════════════════════════════════════
+🎮 GAMIFICATION DOUCE (V2.4+ — non prioritaire)
+═══════════════════════════════════════════════════════════════════════
+
+Reportée après V2.3 complet. À reprendre uniquement si les signaux de
+rétention le justifient. Pas de gamification avant d'avoir confirmé que
+le produit core retient déjà.
+
+
+═══════════════════════════════════════════════════════════════════════
+🔐 AUTH & PROD HARDENING
+═══════════════════════════════════════════════════════════════════════
+
+[ ] SMTP custom configuré et email crédible
+    → Sans ça : emails partent "via supabase.io" (CTR plus bas, risque de spam)
+[ ] Les emails n'utilisent plus localhost
+    → Conséquence directe de Site URL = URL de prod
+[ ] Les callbacks auth pointent vers la bonne URL de prod
+[x] Les clés sensibles ne sont pas exposées côté client
+    → Vérifié : seul VITE_SUPABASE_PUBLISHABLE_KEY (publique) est exposé
+    → ANTHROPIC_API_KEY uniquement dans process.env (server-side)
+    → SUPABASE_SERVICE_ROLE_KEY uniquement dans client.server.ts (non utilisé)
+[x] La service role key n'est utilisée que côté serveur
+[x] Les policies RLS couvrent tous les cas d'accès réels
+    → 8 tables RLS ON, policies SELECT/INSERT/UPDATE/DELETE complètes
+    → SECURITY DEFINER functions revoquées (handle_new_user, rls_auto_enable)
+    → V2.1 + V2.2 ont ajouté des policies cohérentes pour 5 nouvelles tables
+[ ] Leaked Password Protection activée (recommandé)
+    → Dashboard → Authentication → Providers → Email → Leaked Password Protection ON
+
+
+═══════════════════════════════════════════════════════════════════════
+🧪 TESTS E2E (à faire MANUELLEMENT)
+═══════════════════════════════════════════════════════════════════════
+
+CŒUR MVP (régressions à vérifier après V2.1/V2.2)
+[ ] Flux invité complet : landing → onboarding → check-in → dashboard
+[ ] Flux signup : inscription → email → lien → login → check-in
+[ ] Flux login existant : connexion → dashboard
+[ ] Flux logout : déconnexion → réglages reviennent aux défauts (light, vide)
+[ ] Test invité puis création de compte → checkins préservés (updateUser)
+[ ] 10 check-ins rapides → pas d'erreur DB / RLS / rate limit
+
+V2.1 — BIBLIOTHÈQUE
+[ ] /library s'ouvre sans connexion (lecture publique)
+[ ] Filtres catégorie + durée combinables
+[ ] /library/$slug rend correctement les contenus seedés
+[ ] Click "C'est fait" → tracking content_completed
+[ ] Recommandations sur /result correspondent à l'état du checkin
+
+V2.2 — DIAGNOSTIC
+[ ] Click "Diagnostic complet" depuis landing → onboarding (si nécessaire) → /diagnostic
+[ ] Parcours 12 questions, navigation back, "Question précédente"
+[ ] Fin → "Marge analyse…" → /diagnostic-result
+[ ] Profil affiché avec barres domaines, zones de vigilance, recommandations
+    cliquables vers /library/$slug
+[ ] Avec ANTHROPIC_API_KEY absente → fallback synthesis affichée sans crash
+[ ] Carte diagnostic dans /home après 1+ checkin
+[ ] Carte "Revoir ton dernier diagnostic" après diagnostic complété
+
+V2.2 — BILAN HEBDO
+[ ] /week avec 0-1 checkin → message empty + chart vide, pas de bouton
+[ ] /week avec 2+ checkins → bouton "Générer mon bilan" affiché
+[ ] Click → "Marge écrit ton bilan…" → narrative + helpful/aggravating + plan
+[ ] Bouton "Régénérer" remplace le bilan en place
+[ ] Bilan persiste au reload (cache weekly_summaries)
+
+INFRA / NAVIGATION
+[ ] Test mobile (responsive)
+[ ] Test desktop
+[ ] Test navigation refresh / hard reload sur routes SSR (pas de flash thème)
+[ ] Test preview URL + prod URL
+[ ] Test liens email auth/password reset en production
+
+
+═══════════════════════════════════════════════════════════════════════
+📈 MONITORING & OBSERVABILITÉ
+═══════════════════════════════════════════════════════════════════════
+
+[~] Cloudflare Analytics activé (auto-activé sur CF Pages)
+[ ] Logs Cloudflare vérifiés sur le flux principal
+[ ] Logs Supabase vérifiés (Auth + DB)
+[ ] Sentry ou équivalent branché pour erreurs frontend
+[~] Monitoring minimal des erreurs prod en place
+    → console.error utilisés dans tous les catch — visibles dans CF logs
+    → analytics_events fournit déjà DAU / WAU / rétention via SQL Supabase
+
+
+═══════════════════════════════════════════════════════════════════════
+🎨 POLISH PRODUCTION
+═══════════════════════════════════════════════════════════════════════
+
+[x] Favicon (public/favicon.svg, Marge-branded)
+[x] Apple touch icon (public/apple-touch-icon.svg)
+[x] Meta title / description (__root.tsx)
+[x] OpenGraph image (public/og-image.svg, 1200x630)
+[x] Twitter card (summary_large_image)
+[x] theme-color light + dark variants
+[x] 404 custom (NotFoundComponent dans __root.tsx)
+[x] Empty states propres (home, week, library)
+[x] Loader / states de chargement propres (volontairement minimaux)
+[x] Messages d'erreur propres (auth.tsx affiche les erreurs Supabase)
+[x] Cohérence mobile / responsive validée (lg:hidden / hidden lg:block partout)
+[x] Theme bootstrap synchrone dans <head> (zéro flash, fonctionne sur toutes routes)
+
+
+═══════════════════════════════════════════════════════════════════════
+🌍 DOMAINE & LANCEMENT
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Domaine custom prêt (si applicable)
+    → CF Pages → Custom Domains → Set up a custom domain
+[ ] SSL OK sur domaine custom (auto-provisionné par CF)
+[ ] URL finale de lancement décidée
+    → Provisoire : https://marge-app.pages.dev
+[ ] Preview finale validée avant bascule prod
+
+
+═══════════════════════════════════════════════════════════════════════
+🔥 COMMITS DE LA SESSION (chronologique)
+═══════════════════════════════════════════════════════════════════════
+
+  9ccd2f6  fix(checkin): remove localStorage-based anon gate causing bounce loop
+  57dc279  fix(auth): don't redirect anonymous users away from auth page
+  8bb9269  fix: full audit pass — sync data with Supabase across all routes
+  f7ad6ca  fix: persist all settings (theme, moments, notifications) across reloads
+  d27e411  feat: reset prefs on logout, restore them on login
+  be86be1  chore: production polish — favicon, OG, robust state colors, RLS hardening
+  08697fe  feat(v2.1): content library + analytics + multi-section landing
+  c0f66e2  feat(v2.2): full diagnostic + AI weekly review + personalization layer
+
+Bugs critiques corrigés (avant V2) :
+  1. Onboarding bloqué (GRANT Postgres manquants → erreur 42501)
+  2. Bounce loop /checkin → /home (gate localStorage stale)
+  3. Bounce loop /auth → /home (anon session déclenchait redirect)
+  4. Anon → real account perdait toutes les données (signUp au lieu de updateUser)
+  5. Result/Week ne lisaient que localStorage (vide sur nouveau navigateur)
+  6. Settings ne sync pas (onConflict manquant sur upsert)
+  7. Theme dark ne persistait pas (script bootstrap manquant dans <head>)
+  8. Logout n'effaçait pas l'état local (le user suivant héritait)
+  9. Login n'hydratait pas le localStorage (flash thème au reload)
+  10. wipe() ne supprimait pas profile_progress / profiles (DELETE policy manquante)
+  11. SECURITY DEFINER functions exposées via RPC (revoke EXECUTE)
+
+
+═══════════════════════════════════════════════════════════════════════
+📦 STATUT GLOBAL — Roadmap
+═══════════════════════════════════════════════════════════════════════
+
+V1     MVP                                  ✅ DÉPLOYÉ + STABILISÉ (6 commits de fixes)
+V2.1   Bibliothèque + analytics + landing   ✅ DÉPLOYÉ (commit 08697fe)
+V2.2   Diagnostic + bilan hebdo + perso     ✅ DÉPLOYÉ (commit c0f66e2)
+V2.3   Audit stratégique complet            ✅ FAIT (2026-05-03)
+V2.3.0 Curation library + entitlements      ✅ LIVRÉ (gate de validation requis)
+V2.3.1 Quota IA + cap diagnostic            ⏳ après gate V2.3.0
+V2.3.2 Safety layer                         ⏳ après V2.3.1
+V2.3.3 Chat IA "Parler à Marge"             ⏳ après V2.3.2
+V2.3.4 Stripe + entitlements live           ⏳ après V2.3.3
+V2.3.5 Polish & instrumentation finale      ⏳ après V2.3.4
+V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
+
+État technique :
+  CODE         : ✅ Prêt à livrer (tsc passe, build prod OK, 8 commits poussés)
+  DB           : ✅ 8 tables avec RLS + policies + grants cohérents
+                    (profiles, onboarding_preferences, checkins, profile_progress,
+                     weekly_summaries, content_items, content_interactions,
+                     analytics_events, assessments, assessment_answers,
+                     user_profile_traits)
+  INFRA CF     : ✅ Configurée (sauf secret ANTHROPIC_API_KEY)
+  INFRA SUPA   : ⚠️  Site URL + Redirect URLs à configurer manuellement
+  TESTS E2E    : ⚠️  À faire manuellement
+  SMTP         : ⚠️  À configurer (sinon emails depuis "via supabase.io")
+  MONITORING   : ⚠️  Optionnel (Sentry, etc.)
+  DOMAINE      : ⚠️  À décider et configurer
+
+
+═══════════════════════════════════════════════════════════════════════
+✅ QUESTIONS BLOQUANTES — TOUTES TRANCHÉES (2026-05-03)
+═══════════════════════════════════════════════════════════════════════
+
+  1. Pricing                  → €7.99/mo · €59.99/an · €79.99 lifetime
+  2. Trial                    → 7 jours d'accès complet
+  3. Chat free quota          → 5 messages / jour
+  4. Library curation         → garder seulement substantiel + ready ;
+                                 le découpage précis se fera DANS V2.3.0
+                                 selon ce critère
+  5. Library prod vide        → investigué le 2026-05-03, RÉSOLU (la page
+                                 marche, le rapport initial était transient)
+  6. Stripe                   → test mode d'abord, live quand validé
+  7. Anon sur /chat           → NON, compte réel obligatoire
+  8. Streaming chat           → non-streaming d'abord, streaming plus tard
+
+
+═══════════════════════════════════════════════════════════════════════
+🚀 PROCHAINES ÉTAPES PRIORITAIRES (dans l'ordre)
+═══════════════════════════════════════════════════════════════════════
+
+  1. CF Pages : ajouter ANTHROPIC_API_KEY (5 min) — débloque les flows IA
+  2. Supabase : configurer Site URL + Redirect URLs (5 min)
+  3. Tests E2E manuels sur https://marge-app.pages.dev (45 min)
+       → vérifier les nouveaux flows V2.1 + V2.2 sans régression du MVP
+  4. SMTP custom si lancement public (30 min)
+  5. Domaine custom + SSL (15 min)
+  6. Activer Leaked Password Protection (1 min)
+  7. Lancer V2.3.0 (curation library + entitlements architecture)
+       → débloqué, prêt à attaquer dès validation finale humain
+
+
+═══════════════════════════════════════════════════════════════════════
+🔄 HISTORIQUE DES MISES À JOUR DE CE FICHIER
+═══════════════════════════════════════════════════════════════════════
+
+  2026-05-02  Création initiale (post V1 MVP fixes)
+  2026-05-02  Ajout V2.1 (library + analytics + landing)
+  2026-05-02  Ajout V2.2 (diagnostic + bilan + perso)
+  2026-05-03  Audit stratégique V2.3 + roadmap détaillée 6 phases
+              + stratégie free/premium + questions bloquantes
+  2026-05-03  Décisions produit figées (pricing 7.99/59.99/79.99 lifetime,
+              trial 7j, chat free 5/jour, comptes réels uniquement,
+              Stripe test mode d'abord, non-streaming d'abord)
+  2026-05-03  V2.3.0 livré : curation library + entitlements + paywall
+              + page /pricing vitrine. Gate de validation requis avant V2.3.1.
+  2026-05-03  Décisions produit figées par humain :
+              - Pricing avec lifetime €79.99 (en plus mo + an)
+              - Trial 7 jours
+              - Chat free 5 msg/jour, compte réel obligatoire
+              - Stripe test mode d'abord
+              - Streaming chat reporté (non-streaming d'abord)
+              + Investigation library prod : RÉSOLU (transient, pas de bug)
+
+À METTRE À JOUR à chaque action significative :
+  - chaque commit qui livre une feature
+  - chaque migration DB
+  - chaque décision stratégique majeure
+  - chaque réponse à une question bloquante
+  - chaque audit ou refonte
+
+═══════════════════════════════════════════════════════════════════════

@@ -4,6 +4,9 @@ import { WideShell, PageShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { getContentBySlug, logInteraction, CATEGORIES, type ContentItem, type Category } from "@/lib/content";
 import { track } from "@/lib/analytics";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { hasFeature } from "@/lib/entitlements";
+import { PaywallCard } from "@/components/Paywall";
 
 export const Route = createFileRoute("/library/$slug")({
   head: () => ({ meta: [{ title: "Lecture — Marge" }] }),
@@ -15,6 +18,9 @@ function ContentDetail() {
   const [item, setItem] = useState<ContentItem | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [completed, setCompleted] = useState(false);
+  const { entitlement, loading: entLoading } = useEntitlements();
+  const canPremium = hasFeature(entitlement, "library_premium");
+  const isLocked = item?.tier === "premium" && !canPremium;
 
   // Fetch content + log "viewed" once per mount
   useEffect(() => {
@@ -24,7 +30,7 @@ function ContentDetail() {
       if (!data) { setNotFound(true); return; }
       setItem(data);
       logInteraction(slug, "viewed");
-      track("content_viewed", { slug, category: data.category, duration_min: data.duration_min });
+      track("content_viewed", { slug, category: data.category, duration_min: data.duration_min, tier: data.tier });
     });
     return () => { cancelled = true; };
   }, [slug]);
@@ -71,6 +77,12 @@ function ContentDetail() {
           <span className="text-primary">{categoryLabel}</span>
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground tabular-nums">{item.duration_min} minutes</span>
+          {item.tier === "premium" && (
+            <>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-primary">Marge Plus</span>
+            </>
+          )}
         </div>
 
         {/* Title */}
@@ -83,48 +95,74 @@ function ContentDetail() {
           {item.summary}
         </p>
 
-        {/* Body */}
-        <div className="mt-12 prose-marge text-foreground/90 leading-[1.75] text-[17px]">
-          {item.body.split(/\n\n+/).map((block, i) => (
-            <Paragraph key={i} text={block} />
-          ))}
-        </div>
-
-        {/* Why helps */}
-        <aside className="mt-16 marge-card p-7 border-primary/30">
-          <div className="text-xs uppercase tracking-[0.18em] text-primary">Pourquoi ça aide</div>
-          <p className="mt-4 text-foreground/85 leading-relaxed">{item.why_helps}</p>
-          {Array.isArray(item.refs) && item.refs.length > 0 && (
-            <ul className="mt-5 space-y-2">
-              {(item.refs as Array<{ label: string; source: string }>).map((r, i) => (
-                <li key={i} className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">{r.label}</span>
-                  {r.source && <span className="text-muted-foreground"> · {r.source}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
-
-        {/* Action */}
-        <div className="mt-12 flex flex-col sm:flex-row sm:items-center gap-4">
-          {completed ? (
-            <div className="flex items-center gap-3 text-sm text-primary">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
-              <span>Bien fait. Tu peux refermer la page tranquillement.</span>
+        {/* Body — preview only when locked */}
+        {isLocked ? (
+          <>
+            <div className="mt-12 prose-marge text-foreground/90 leading-[1.75] text-[17px] relative">
+              {(() => {
+                // Show only the first paragraph as preview, then fade-out
+                const blocks = item.body.split(/\n\n+/);
+                const previewBlocks = blocks.slice(0, 1);
+                return previewBlocks.map((block, i) => (
+                  <Paragraph key={i} text={block} />
+                ));
+              })()}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background to-transparent" />
             </div>
-          ) : (
-            <button
-              onClick={handleComplete}
-              className="rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground hover:opacity-90 cursor-pointer"
-            >
-              C'est fait
-            </button>
-          )}
-          <Link to="/library" className="text-sm text-muted-foreground hover:text-foreground">
-            Voir d'autres contenus →
-          </Link>
-        </div>
+
+            <div className="mt-12">
+              {entLoading ? (
+                <div className="h-32" aria-hidden />
+              ) : (
+                <PaywallCard feature="library_premium" trigger="content_detail" />
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="mt-12 prose-marge text-foreground/90 leading-[1.75] text-[17px]">
+              {item.body.split(/\n\n+/).map((block, i) => (
+                <Paragraph key={i} text={block} />
+              ))}
+            </div>
+
+            {/* Why helps */}
+            <aside className="mt-16 marge-card p-7 border-primary/30">
+              <div className="text-xs uppercase tracking-[0.18em] text-primary">Pourquoi ça aide</div>
+              <p className="mt-4 text-foreground/85 leading-relaxed">{item.why_helps}</p>
+              {Array.isArray(item.refs) && item.refs.length > 0 && (
+                <ul className="mt-5 space-y-2">
+                  {(item.refs as Array<{ label: string; source: string }>).map((r, i) => (
+                    <li key={i} className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground/80">{r.label}</span>
+                      {r.source && <span className="text-muted-foreground"> · {r.source}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </aside>
+
+            {/* Action */}
+            <div className="mt-12 flex flex-col sm:flex-row sm:items-center gap-4">
+              {completed ? (
+                <div className="flex items-center gap-3 text-sm text-primary">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span>Bien fait. Tu peux refermer la page tranquillement.</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleComplete}
+                  className="rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground hover:opacity-90 cursor-pointer"
+                >
+                  C'est fait
+                </button>
+              )}
+              <Link to="/library" className="text-sm text-muted-foreground hover:text-foreground">
+                Voir d'autres contenus →
+              </Link>
+            </div>
+          </>
+        )}
 
         <footer className="mt-20 text-xs text-muted-foreground italic max-w-xl">
           Marge n'est pas un substitut à un suivi psychologique. Si tu traverses une période

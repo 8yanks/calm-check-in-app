@@ -3,11 +3,17 @@
 // content_items is publicly readable (anon + authenticated), so SEO, previews
 // on the landing, and unauthenticated browsing all work without surprises.
 // content_interactions logs viewed/completed/saved per signed-in user.
+//
+// V2.3.0: queries now filter on status='published' (the new source of truth).
+// The `published` boolean column is preserved for rétro-compat but not read.
+// Premium gating is COSMETIC and lives in the UI — both free and premium tier
+// rows are returned by these queries; the caller decides what to render.
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ContentItem = Tables<"content_items">;
+export type ContentTier = "free" | "premium";
 
 export const CATEGORIES = {
   respiration: "Respiration",
@@ -33,6 +39,7 @@ export type ContentFilter = {
   category?: Category | null;
   bucket?: DurationBucket | null;
   state?: string | null; // matches state_match []text
+  tier?: ContentTier | null; // restrict to free or premium only; null = both
 };
 
 /**
@@ -43,9 +50,10 @@ export async function listContents(filter: ContentFilter = {}): Promise<ContentI
   let q = supabase
     .from("content_items")
     .select("*")
-    .eq("published", true);
+    .eq("status", "published");
 
   if (filter.category) q = q.eq("category", filter.category);
+  if (filter.tier) q = q.eq("tier", filter.tier);
   if (filter.bucket) {
     const b = DURATION_BUCKETS.find(x => x.id === filter.bucket);
     if (b) q = q.gte("duration_min", b.min).lte("duration_min", b.max);
@@ -55,7 +63,8 @@ export async function listContents(filter: ContentFilter = {}): Promise<ContentI
     q = q.contains("state_match", [filter.state]);
   }
 
-  const { data, error } = await q.order("category").order("duration_min");
+  // Order: free first (so curated free content leads), then by category/duration
+  const { data, error } = await q.order("tier").order("category").order("duration_min");
   if (error) {
     console.error("listContents error:", error);
     return [];
