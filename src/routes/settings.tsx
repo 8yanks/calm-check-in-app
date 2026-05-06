@@ -169,6 +169,16 @@ function SettingsPage() {
         </button>
       </Section>
 
+      <Section title="Aide humaine">
+        <Link to="/aide" className="marge-card p-5 block hover:border-primary transition">
+          <div className="text-sm">Lignes d'écoute</div>
+          <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            Marge n'est pas un substitut à un soutien humain. Voici les ressources
+            anonymes et gratuites quand tu en as besoin.
+          </div>
+        </Link>
+      </Section>
+
       <p className="mt-12 text-center text-xs text-muted-foreground">Marge · v0.1</p>
     </PageShell>
   );

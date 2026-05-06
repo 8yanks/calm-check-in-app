@@ -85,6 +85,15 @@ function About() {
           </Link>
           <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">Retour à l'accueil</Link>
         </div>
+
+        <div className="mt-16 pt-8 border-t border-border text-xs text-muted-foreground">
+          <p className="leading-relaxed max-w-xl">
+            Marge n'est pas un dispositif médical et ne remplace pas un suivi
+            psychologique. Si tu traverses un moment difficile,{" "}
+            <Link to="/aide" className="text-primary hover:opacity-80">des lignes d'écoute existent</Link>
+            {" "}— anonymes, gratuites, ouvertes quand tu en as besoin.
+          </p>
+        </div>
       </article>
     </WideShell>
   );

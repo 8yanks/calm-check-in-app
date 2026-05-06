@@ -329,6 +329,7 @@ function Welcome() {
         <div className="flex items-center gap-5">
           <Link to="/about" className="hover:text-foreground transition">À propos</Link>
           <Link to="/library" className="hover:text-foreground transition">Bibliothèque</Link>
+          <Link to="/aide" className="hover:text-foreground transition">Aide d'urgence</Link>
           <Link to="/auth" className="hover:text-foreground transition">Se connecter</Link>
         </div>
       </footer>

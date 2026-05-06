@@ -20,6 +20,7 @@ import { Route as DiagnosticResultRouteImport } from './routes/diagnostic-result
 import { Route as DiagnosticRouteImport } from './routes/diagnostic'
 import { Route as CheckinRouteImport } from './routes/checkin'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AideRouteImport } from './routes/aide'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LibrarySlugRouteImport } from './routes/library.$slug'
@@ -79,6 +80,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AideRoute = AideRouteImport.update({
+  id: '/aide',
+  path: '/aide',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -98,6 +104,7 @@ const LibrarySlugRoute = LibrarySlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/aide'
     | '/auth'
     | '/checkin'
     | '/diagnostic'
@@ -165,6 +175,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/aide'
     | '/auth'
     | '/checkin'
     | '/diagnostic'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/aide'
     | '/auth'
     | '/checkin'
     | '/diagnostic'
@@ -198,6 +210,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  AideRoute: typeof AideRoute
   AuthRoute: typeof AuthRoute
   CheckinRoute: typeof CheckinRoute
   DiagnosticRoute: typeof DiagnosticRoute
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/aide': {
+      id: '/aide'
+      path: '/aide'
+      fullPath: '/aide'
+      preLoaderRoute: typeof AideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -328,6 +348,7 @@ const LibraryRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  AideRoute: AideRoute,
   AuthRoute: AuthRoute,
   CheckinRoute: CheckinRoute,
   DiagnosticRoute: DiagnosticRoute,

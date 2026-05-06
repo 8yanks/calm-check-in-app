@@ -204,6 +204,7 @@ function Pricing() {
         <div className="flex items-center gap-5">
           <Link to="/about" className="hover:text-foreground">À propos</Link>
           <Link to="/library" className="hover:text-foreground">Bibliothèque</Link>
+          <Link to="/aide" className="hover:text-foreground">Aide d'urgence</Link>
         </div>
       </footer>
     </WideShell>

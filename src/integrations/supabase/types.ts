@@ -335,6 +335,39 @@ export type Database = {
         }
         Relationships: []
       }
+      risk_events: {
+        Row: {
+          action_taken: string
+          context: Json
+          created_at: string
+          id: string
+          level: string
+          source: string
+          trigger_phrase: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action_taken: string
+          context?: Json
+          created_at?: string
+          id?: string
+          level: string
+          source: string
+          trigger_phrase?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action_taken?: string
+          context?: Json
+          created_at?: string
+          id?: string
+          level?: string
+          source?: string
+          trigger_phrase?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       stripe_events: {
         Row: {
           id: string

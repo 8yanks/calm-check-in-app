@@ -1,6 +1,6 @@
 ═══════════════════════════════════════════════════════════════════════
 MARGE — CHECKLIST DÉPLOIEMENT FINAL + ROADMAP V2
-État au 2026-05-03 · post V2.3.1 livré
+État au 2026-05-03 · post V2.3.2 livré
 ═══════════════════════════════════════════════════════════════════════
 
 LÉGENDE :
@@ -361,18 +361,58 @@ dans la session du 2026-05-03 (10 sections).
 
 
 ═══════════════════════════════════════════════════════════════════════
-🛡️  V2.3.2 — SAFETY LAYER
+🛡️  V2.3.2 — SAFETY LAYER  ✅ LIVRÉ
 ═══════════════════════════════════════════════════════════════════════
 
-[ ] Nouvelle table risk_events (id, user_id NULL, level, source,
-    trigger_phrase NULL, action_taken, context jsonb, created_at)
-    RLS : INSERT-own, no SELECT pour end-user
-[ ] src/lib/safety.ts (côté SERVER) : lexique FR signaux crise,
-    niveaux attention/elevated/urgent, réponses fallback,
-    detectRisk() + buildEmergencyResponse() + logRiskEvent()
-[ ] Composant <EmergencyResources> (3114, SOS Amitié 09 72 39 40 50, etc.)
-[ ] Tests unitaires : faux positifs, faux négatifs, casse, accents
-[ ] Pas branché au chat encore (le chat n'existe pas)
+[x] Nouvelle table risk_events (id, user_id NULL, level, source,
+    trigger_phrase NULL, action_taken, context jsonb, created_at).
+    Index sur (user_id, created_at), (level, created_at), (source,
+    created_at) pour les futures ops queries.
+    RLS : INSERT-own seulement (auth.uid()=user_id OR user_id IS NULL),
+    no SELECT pour end-user, service_role pour ops dashboards.
+[x] src/lib/safety.ts (server-side, isolation stricte de la couche IA) :
+    - RiskLevel type ('none'|'attention'|'elevated'|'urgent')
+    - Lexique FR : URGENT_PATTERNS (idéation suicidaire, auto-mutilation),
+      ELEVATED_PATTERNS (détresse aiguë), ATTENTION_PATTERNS (signaux
+      faibles), DEFUSE_PATTERNS (idiomes type "mourir de rire")
+    - detectRisk(text) : pure function, normalise (lowercase + sans
+      accents) + match patterns + defuse → retourne RiskDetection
+      avec matched_terms (catégories, jamais la phrase verbatim)
+    - buildSafetyResponse(level) : URGENT_MESSAGE bloque l'IA + ressources,
+      ELEVATED_MESSAGE accompagne sans bloquer, ATTENTION_MESSAGE doux
+    - logRiskEvent(scopedClient, input) : best-effort INSERT, ne throw
+      jamais, écrit sous l'identité du caller (RLS-protected)
+    - SAFETY_TEST_CASES : 19 cas documentés (urgent + defuse + elevated
+      + attention + none) + runSafetyTests() pour calibrage manuel en dev
+[x] Composant <EmergencyResources> :
+    - Variante full card : SAMU 15, 3114 (prévention suicide), SOS
+      Amitié 09 72 39 40 50. Description, horaires, tel: links cliquables.
+      Calme, factuel, jamais alarmiste.
+    - Variante <EmergencyResourcesInline> : compact, prêt pour l'embed
+      dans les safety alerts du chat (V2.3.3)
+    - <EmergencyLink> : lien discret pour footers (vers /aide)
+[x] Nouvelle route /aide : page dédiée publiquement accessible (sans
+    auth), indexée, copy calme et factuel. Toujours-disponible. Jamais
+    paywallée.
+[x] Liens "Aide d'urgence" ajoutés dans :
+    - footer / (landing)
+    - footer /pricing
+    - bandeau de mention non-médicale dans /about
+    - section "Aide humaine" dans /settings (utilisateurs auth)
+[x] PAS branché au chat (le chat n'existe pas encore, V2.3.3)
+[x] PAS appliqué au texte des checkins (champs structurés, pas de
+    free text actuellement)
+[x] tsc --noEmit propre, build prod réussi (worker = 741.64 KB)
+
+DÉCISIONS DESIGN :
+  - Détection lexicale, pas sémantique. Compromis assumé pour latence
+    et prévisibilité. À affiner avec données réelles dès V2.3.3.
+  - Verbatim phrase NON loguée par défaut (privacy). Le matched_terms
+    et defused sont stockés dans context jsonb.
+  - urgent → block IA + show resources ; elevated → soft response +
+    show resources ; attention → message doux, IA continue.
+  - Defuse rétrograde urgent → attention (pas elevated). Pas de defuse
+    sur elevated (les expressions matchées sont rarement métaphoriques).
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -609,8 +649,8 @@ V2.1   Bibliothèque + analytics + landing   ✅ DÉPLOYÉ (commit 08697fe)
 V2.2   Diagnostic + bilan hebdo + perso     ✅ DÉPLOYÉ (commit c0f66e2)
 V2.3   Audit stratégique complet            ✅ FAIT (2026-05-03)
 V2.3.0 Curation library + entitlements      ✅ LIVRÉ
-V2.3.1 Quota IA + cap diagnostic            ✅ LIVRÉ (gate de validation requis)
-V2.3.2 Safety layer                         ⏳ après V2.3.1
+V2.3.1 Quota IA + cap diagnostic            ✅ LIVRÉ
+V2.3.2 Safety layer                         ✅ LIVRÉ (gate de validation requis)
 V2.3.3 Chat IA "Parler à Marge"             ⏳ après V2.3.2
 V2.3.4 Stripe + entitlements live           ⏳ après V2.3.3
 V2.3.5 Polish & instrumentation finale      ⏳ après V2.3.4
@@ -681,6 +721,11 @@ V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
               recordUsage tracking sur les 3 server fns, écran
               <DiagnosticBlocked> calme et daté. Fail-open en l'absence
               d'access_token.
+  2026-05-03  V2.3.2 livré : risk_events + safety.ts (lexique FR
+              detectRisk + buildSafetyResponse + logRiskEvent) +
+              <EmergencyResources> + route /aide. Liens "Aide d'urgence"
+              dans landing/pricing/about/settings. Pas encore branché
+              au chat (qui n'existe pas).
   2026-05-03  Décisions produit figées par humain :
               - Pricing avec lifetime €79.99 (en plus mo + an)
               - Trial 7 jours
