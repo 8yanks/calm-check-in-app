@@ -99,6 +99,10 @@ function Checkin() {
       calm_level: LABELS.calm[s.calm_level],
       blocker: LABELS.blocker[s.blocker],
       immediate_need: LABELS.need[s.immediate_need],
+      // Pass the user's Supabase access token so the server fn can record
+      // ai_usage under their RLS context. Optional — falls back to fail-open
+      // if the session can't be read.
+      access_token: session.access_token,
     };
 
     let stateLabel: StateLabel;

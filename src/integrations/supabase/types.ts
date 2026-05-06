@@ -12,6 +12,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          created_at: string
+          fn: string
+          id: string
+          success: boolean
+          tokens_in: number
+          tokens_out: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fn: string
+          id?: string
+          success?: boolean
+          tokens_in?: number
+          tokens_out?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fn?: string
+          id?: string
+          success?: boolean
+          tokens_in?: number
+          tokens_out?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       analytics_events: {
         Row: {
           created_at: string

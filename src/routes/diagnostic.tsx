@@ -13,6 +13,8 @@ import {
 } from "@/lib/diagnostic";
 import { analyzeDiagnostic } from "@/lib/claude";
 import { getTraits, pickTone, recomputeAndStoreTraits } from "@/lib/personalization";
+import { useEntitlements } from "@/hooks/use-entitlements";
+import { hasFeature } from "@/lib/entitlements";
 import type { Tables } from "@/integrations/supabase/types";
 
 export const Route = createFileRoute("/diagnostic")({
@@ -20,31 +22,83 @@ export const Route = createFileRoute("/diagnostic")({
   component: Diagnostic,
 });
 
-type Phase = "questions" | "processing" | "saving";
+type Phase = "loading" | "blocked" | "questions" | "processing" | "saving";
+
+const COOLDOWN_DAYS = 90;
 
 function Diagnostic() {
   const navigate = useNavigate();
   const { session, loading: authLoading } = useRequireAuth();
+  const { entitlement, loading: entLoading } = useEntitlements();
+  const canUnlimited = hasFeature(entitlement, "diagnostic_unlimited");
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<AnswerMap>({});
-  const [phase, setPhase] = useState<Phase>("questions");
+  const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [nextAvailable, setNextAvailable] = useState<string | null>(null);
 
   const total = TOTAL_QUESTIONS;
   const q = DIAGNOSTIC_QUESTIONS[step];
 
+  // Pre-flight cap check: query the user's most recent completed diagnostic
+  // and decide whether they can start a new one. Premium users skip the
+  // check entirely. Done client-side; the server function re-validates on
+  // submit for real enforcement.
   useEffect(() => {
-    if (!authLoading && session) track("diagnostic_started", {});
+    if (authLoading || !session || entLoading) return;
+
+    if (canUnlimited) {
+      setPhase("questions");
+      track("diagnostic_started", { plan: entitlement?.plan ?? "premium" });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data: latest } = await supabase
+        .from("assessments")
+        .select("completed_at")
+        .eq("user_id", session.user.id)
+        .eq("type", "diagnostic")
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (!latest?.completed_at) {
+        setPhase("questions");
+        track("diagnostic_started", { plan: "free", first_time: true });
+        return;
+      }
+
+      const lastTs = new Date(latest.completed_at).getTime();
+      const nextTs = lastTs + COOLDOWN_DAYS * 24 * 3600 * 1000;
+      if (Date.now() < nextTs) {
+        setNextAvailable(new Date(nextTs).toISOString());
+        setPhase("blocked");
+      } else {
+        setPhase("questions");
+        track("diagnostic_started", { plan: "free", first_time: false });
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, session?.user.id]);
+  }, [authLoading, session?.user.id, entLoading, canUnlimited]);
 
   // Group questions by section to show a soft section header
   const sectionForStep = useMemo(() => {
     return DIAGNOSTIC_QUESTIONS[step]?.section ?? "";
   }, [step]);
 
-  if (authLoading || !session) {
+  if (authLoading || !session || phase === "loading") {
     return <PageShell><div className="h-screen" /></PageShell>;
+  }
+
+  // Free user blocked by the cooldown — calm, dated message + premium upsell.
+  if (phase === "blocked" && nextAvailable) {
+    return <DiagnosticBlocked nextAvailable={nextAvailable} />;
   }
 
   if (phase === "processing" || phase === "saving") {
@@ -124,7 +178,10 @@ function Diagnostic() {
         await supabase.from("assessment_answers").insert(rows);
       }
 
-      // 5. Call IA for synthesis
+      // 5. Call IA for synthesis. The server function re-validates the cap
+      // server-side using the access_token — if the user got past our
+      // pre-flight check via a stale state, the server will throw
+      // DIAGNOSTIC_BLOCKED here and we render the blocked state instead.
       let synthesis;
       try {
         synthesis = await analyzeDiagnostic({
@@ -133,9 +190,26 @@ function Diagnostic() {
             overall_intensity: overall,
             recent_checkins: (recentRows ?? []) as never,
             tone,
+            access_token: session.access_token,
           },
         });
-      } catch (err) {
+      } catch (err: unknown) {
+        const isQuotaError =
+          (err instanceof Error && err.message.includes("DIAGNOSTIC_BLOCKED")) ||
+          (typeof err === "object" && err !== null && "code" in err &&
+           (err as { code?: string }).code === "DIAGNOSTIC_BLOCKED");
+
+        if (isQuotaError) {
+          // Roll back the assessment row we created — we never finished.
+          // Best-effort, ignore failures.
+          void supabase.from("assessments").delete().eq("id", assessmentId);
+          // Try to extract next_available_at from the thrown error's payload.
+          const next = (err as { next_available_at?: string }).next_available_at;
+          setNextAvailable(next ?? new Date(Date.now() + COOLDOWN_DAYS * 24 * 3600 * 1000).toISOString());
+          setPhase("blocked");
+          return;
+        }
+
         console.error("analyzeDiagnostic failed, using fallback:", err);
         synthesis = buildFallbackSynthesis(domainScores, overall);
       }
@@ -225,6 +299,95 @@ function Diagnostic() {
           </button>
         )}
       </div>
+    </WideShell>
+  );
+}
+
+/**
+ * Calm screen shown to free users who already did their diagnostic in the
+ * past 90 days. Surfaces the exact date they can come back, links to the
+ * previous result, and offers Marge Plus for unlimited diagnostics.
+ */
+function DiagnosticBlocked({ nextAvailable }: { nextAvailable: string }) {
+  const nextDate = new Date(nextAvailable);
+  const formatted = nextDate.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const daysLeft = Math.max(
+    1,
+    Math.ceil((nextDate.getTime() - Date.now()) / (24 * 3600 * 1000)),
+  );
+
+  return (
+    <WideShell>
+      <header className="flex items-center justify-between">
+        <Link to="/home" className="text-sm text-muted-foreground hover:text-foreground">
+          ← Accueil
+        </Link>
+      </header>
+
+      <article className="mt-16 lg:mt-24 max-w-2xl mx-auto text-center lg:text-left">
+        <div className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+          Diagnostic complet
+        </div>
+        <h1 className="mt-4 font-display text-4xl lg:text-5xl leading-[1.05] tracking-tight">
+          Tu as déjà fait ton diagnostic récemment.
+        </h1>
+        <p className="mt-6 text-lg text-foreground/75 leading-relaxed">
+          Marge te propose le diagnostic complet une fois tous les {COOLDOWN_DAYS} jours
+          en gratuit. Ça laisse le temps aux choses d'évoluer entre deux lectures —
+          c'est ce qui rend la comparaison utile.
+        </p>
+
+        <div className="mt-10 marge-card p-7 text-left">
+          <div className="text-[11px] uppercase tracking-wider text-primary">Prochain diagnostic</div>
+          <p className="mt-3 font-display text-2xl">
+            Disponible le {formatted}
+          </p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Dans {daysLeft} jour{daysLeft > 1 ? "s" : ""}.
+          </p>
+        </div>
+
+        <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
+          <Link
+            to="/diagnostic-result"
+            className="rounded-full bg-primary px-6 py-3 text-sm text-primary-foreground hover:opacity-90 cursor-pointer text-center"
+          >
+            Revoir mon dernier diagnostic
+          </Link>
+          <Link
+            to="/home"
+            className="text-sm text-muted-foreground hover:text-foreground transition px-3 py-3 text-center"
+          >
+            Retour à l'accueil
+          </Link>
+        </div>
+
+        <div className="mt-12 lg:mt-16 marge-card p-6 lg:p-7 border-primary/30 text-left">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-primary">Marge Plus</div>
+          <p className="mt-3 font-display text-lg leading-snug">
+            Refais un diagnostic dès que tu veux.
+          </p>
+          <p className="mt-2 text-sm text-foreground/70 leading-relaxed">
+            Avec Marge Plus, tu peux refaire un diagnostic à tout moment et comparer
+            l'évolution dans le temps.
+          </p>
+          <Link
+            to="/pricing"
+            className="mt-4 inline-block text-sm text-primary hover:opacity-80"
+          >
+            Voir Marge Plus →
+          </Link>
+        </div>
+
+        <footer className="mt-16 text-xs text-muted-foreground italic">
+          Marge n'est pas un dispositif médical. Si tu traverses une période difficile,
+          parler à un professionnel reste la meilleure démarche.
+        </footer>
+      </article>
     </WideShell>
   );
 }

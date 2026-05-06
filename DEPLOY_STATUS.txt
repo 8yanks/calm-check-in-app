@@ -1,6 +1,6 @@
 ═══════════════════════════════════════════════════════════════════════
 MARGE — CHECKLIST DÉPLOIEMENT FINAL + ROADMAP V2
-État au 2026-05-03 · post V2.3.0 livré
+État au 2026-05-03 · post V2.3.1 livré
 ═══════════════════════════════════════════════════════════════════════
 
 LÉGENDE :
@@ -312,15 +312,52 @@ dans la session du 2026-05-03 (10 sections).
 
 
 ═══════════════════════════════════════════════════════════════════════
-⏱️  V2.3.1 — QUOTA IA + CAP DIAGNOSTIC
+⏱️  V2.3.1 — QUOTA IA + CAP DIAGNOSTIC  ✅ LIVRÉ
 ═══════════════════════════════════════════════════════════════════════
 
-[ ] Nouvelle table ai_usage (id, user_id, fn, tokens_used, created_at)
-    OU vue Postgres pour compter par fenêtre glissante
-[ ] Wrapper withQuota(fn, limits) côté serveur
-[ ] Cap diagnostic : 1 / 90j en free, illimité en premium
-[ ] UI propre quand bloqué (jamais anxiogène)
-[ ] Décision fail-open en free (logguer + alerter)
+[x] Nouvelle table ai_usage (id, user_id, fn, tokens_in, tokens_out,
+    success, created_at). RLS : INSERT own only. No SELECT pour les
+    end-users (privacy + cost obscurity), service role pour ops queries.
+    Index : (user_id, fn, created_at DESC) et (fn, created_at DESC).
+[x] Helper resolveCaller(token) côté serveur : valide via
+    auth.getClaims() avec la publishable key (PAS de service-role
+    requis). Retourne un client scoped aux droits de l'utilisateur.
+[x] Helper recordUsage(ctx, fn, tokensIn, tokensOut, success) :
+    fire-and-forget, ne throw jamais, écrit sous l'identité du caller
+    (RLS-protected INSERT).
+[x] Helper assertDiagnosticAllowed(ctx) :
+    - Lit subscriptions via le scoped client (RLS-protected)
+    - Premium (active sub OU lifetime) → bypass
+    - Free → query assessments WHERE completed_at > now() - 90d
+    - Si bloqué : throw avec code DIAGNOSTIC_BLOCKED + next_available_at
+[x] callClaude étendu avec callback onUsage(usage.in, usage.out) qui
+    lit json.usage.input_tokens / output_tokens d'Anthropic.
+[x] analyzeCheckin : ajoute access_token à l'input, recordUsage en
+    finally (track sur succès et échec — même les fallbacks coûtent
+    rien mais on garde le record success=false pour observabilité).
+[x] analyzeDiagnostic : ajoute access_token, assertDiagnosticAllowed
+    AVANT la call Claude (économie de ~1200 tokens si bloqué),
+    recordUsage en finally.
+[x] generateWeeklyReview : ajoute access_token + recordUsage. Pas de
+    cap pour l'instant (déjà gaté par UNIQUE(user_id, week_start)).
+[x] Clients (checkin.tsx, week.tsx, diagnostic.tsx) passent maintenant
+    session.access_token aux server functions.
+[x] /diagnostic.tsx : nouvelle phase "loading" + "blocked", pre-flight
+    check avant d'afficher le questionnaire :
+    - Premium → questions immédiatement
+    - Free + jamais fait → questions
+    - Free + déjà fait dans 90j → écran <DiagnosticBlocked> avec date
+[x] <DiagnosticBlocked> : copy calme et factuel, prochain diagnostic
+    daté précisément (jour/mois/année + jours restants), CTAs vers
+    "Revoir mon dernier diagnostic" + "Marge Plus"
+[x] Catch DIAGNOSTIC_BLOCKED côté finish() : rollback de
+    l'assessment row créée + bascule vers <DiagnosticBlocked> (au cas
+    où l'état pre-flight serait stale)
+[x] Décision fail-open : si access_token absent OU resolveCaller
+    échoue, le call Claude passe sans cap et sans usage record.
+    Justifié par : préserver l'UX en cas de bug auth, l'abus reste
+    contraint par la RLS sur les writes (assessments etc.).
+[x] tsc --noEmit propre, build prod réussi (worker = 741.64 KB)
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -571,8 +608,8 @@ V1     MVP                                  ✅ DÉPLOYÉ + STABILISÉ (6 commit
 V2.1   Bibliothèque + analytics + landing   ✅ DÉPLOYÉ (commit 08697fe)
 V2.2   Diagnostic + bilan hebdo + perso     ✅ DÉPLOYÉ (commit c0f66e2)
 V2.3   Audit stratégique complet            ✅ FAIT (2026-05-03)
-V2.3.0 Curation library + entitlements      ✅ LIVRÉ (gate de validation requis)
-V2.3.1 Quota IA + cap diagnostic            ⏳ après gate V2.3.0
+V2.3.0 Curation library + entitlements      ✅ LIVRÉ
+V2.3.1 Quota IA + cap diagnostic            ✅ LIVRÉ (gate de validation requis)
 V2.3.2 Safety layer                         ⏳ après V2.3.1
 V2.3.3 Chat IA "Parler à Marge"             ⏳ après V2.3.2
 V2.3.4 Stripe + entitlements live           ⏳ après V2.3.3
@@ -640,6 +677,10 @@ V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
               Stripe test mode d'abord, non-streaming d'abord)
   2026-05-03  V2.3.0 livré : curation library + entitlements + paywall
               + page /pricing vitrine. Gate de validation requis avant V2.3.1.
+  2026-05-03  V2.3.1 livré : ai_usage + cap diagnostic 1/90j (free),
+              recordUsage tracking sur les 3 server fns, écran
+              <DiagnosticBlocked> calme et daté. Fail-open en l'absence
+              d'access_token.
   2026-05-03  Décisions produit figées par humain :
               - Pricing avec lifetime €79.99 (en plus mo + an)
               - Trial 7 jours

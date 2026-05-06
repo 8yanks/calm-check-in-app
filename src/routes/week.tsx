@@ -101,6 +101,7 @@ function Week() {
           time_of_day: aggregate.time_of_day,
           recent_excerpts: aggregate.recent_excerpts,
           tone,
+          access_token: session.access_token,
         },
       });
 
