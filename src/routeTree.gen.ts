@@ -19,6 +19,7 @@ import { Route as HomeRouteImport } from './routes/home'
 import { Route as DiagnosticResultRouteImport } from './routes/diagnostic-result'
 import { Route as DiagnosticRouteImport } from './routes/diagnostic'
 import { Route as CheckinRouteImport } from './routes/checkin'
+import { Route as ChatRouteImport } from './routes/chat'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AideRouteImport } from './routes/aide'
 import { Route as AboutRouteImport } from './routes/about'
@@ -75,6 +76,11 @@ const CheckinRoute = CheckinRouteImport.update({
   path: '/checkin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/chat': typeof ChatRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
   '/diagnostic-result': typeof DiagnosticResultRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/chat': typeof ChatRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
   '/diagnostic-result': typeof DiagnosticResultRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/aide': typeof AideRoute
   '/auth': typeof AuthRoute
+  '/chat': typeof ChatRoute
   '/checkin': typeof CheckinRoute
   '/diagnostic': typeof DiagnosticRoute
   '/diagnostic-result': typeof DiagnosticResultRoute
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/chat'
     | '/checkin'
     | '/diagnostic'
     | '/diagnostic-result'
@@ -177,6 +187,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/chat'
     | '/checkin'
     | '/diagnostic'
     | '/diagnostic-result'
@@ -194,6 +205,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/aide'
     | '/auth'
+    | '/chat'
     | '/checkin'
     | '/diagnostic'
     | '/diagnostic-result'
@@ -212,6 +224,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AideRoute: typeof AideRoute
   AuthRoute: typeof AuthRoute
+  ChatRoute: typeof ChatRoute
   CheckinRoute: typeof CheckinRoute
   DiagnosticRoute: typeof DiagnosticRoute
   DiagnosticResultRoute: typeof DiagnosticResultRoute
@@ -296,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckinRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -350,6 +370,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AideRoute: AideRoute,
   AuthRoute: AuthRoute,
+  ChatRoute: ChatRoute,
   CheckinRoute: CheckinRoute,
   DiagnosticRoute: DiagnosticRoute,
   DiagnosticResultRoute: DiagnosticResultRoute,

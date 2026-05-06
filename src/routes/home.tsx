@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PageShell, WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import { applyTheme, savePrefs, weeklyInsights, greetingFor, type CheckinRecord } from "@/lib/marge";
-import { Settings, BarChart3, BookOpen } from "lucide-react";
+import { Settings, BarChart3, BookOpen, MessageCircle } from "lucide-react";
 import { useRequireAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -108,6 +108,9 @@ function Home() {
         <MargeWordmark />
         <div className="flex items-center gap-2">
           <Link to="/library" aria-label="Bibliothèque" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><BookOpen size={18} /></Link>
+          {!isAnonymous && (
+            <Link to="/chat" aria-label="Parler à Marge" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><MessageCircle size={18} /></Link>
+          )}
           <Link to="/week" aria-label="Semaine" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><BarChart3 size={18} /></Link>
           <Link to="/settings" aria-label="Réglages" className="rounded-full p-2 hover:bg-muted text-muted-foreground"><Settings size={18} /></Link>
         </div>
@@ -302,6 +305,18 @@ function Home() {
                 Un parcours plus profond pour situer ton stress, ton sommeil, ton énergie.
               </p>
               <div className="mt-3 text-sm text-primary">Commencer →</div>
+            </Link>
+          )}
+
+          {/* Chat shortcut — only for real accounts (chat is real-account-only) */}
+          {!isAnonymous && (
+            <Link to="/chat" className="marge-card block p-6 hover:border-primary transition">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground">Conversation</div>
+              <div className="mt-2 font-display text-lg leading-snug">Parler à Marge</div>
+              <p className="mt-2 text-xs text-foreground/70 leading-relaxed">
+                Quand mettre des mots aide. Pour reformuler, comprendre, ou trouver l'action minuscule.
+              </p>
+              <div className="mt-3 text-sm text-primary">Ouvrir →</div>
             </Link>
           )}
 

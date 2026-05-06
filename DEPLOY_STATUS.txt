@@ -1,6 +1,6 @@
 ═══════════════════════════════════════════════════════════════════════
 MARGE — CHECKLIST DÉPLOIEMENT FINAL + ROADMAP V2
-État au 2026-05-03 · post V2.3.2 livré
+État au 2026-05-03 · post V2.3.3 livré
 ═══════════════════════════════════════════════════════════════════════
 
 LÉGENDE :
@@ -416,7 +416,7 @@ DÉCISIONS DESIGN :
 
 
 ═══════════════════════════════════════════════════════════════════════
-🤖 V2.3.3 — CHAT IA "PARLER À MARGE"
+🤖 V2.3.3 — CHAT IA "PARLER À MARGE"  ✅ LIVRÉ
 ═══════════════════════════════════════════════════════════════════════
 
 DÉCISIONS FIGÉES :
@@ -425,23 +425,81 @@ DÉCISIONS FIGÉES :
   - Compte réel obligatoire (pas d'anon persistant)
   - Non-streaming dans la première version, streaming reporté plus tard
 
-[ ] Nouvelle table chat_sessions (id, user_id, started_at, ended_at,
-    summary, tokens_used, message_count)
-[ ] Nouvelle table chat_messages (id, session_id, role, content,
-    tokens_in, tokens_out, safety_flag NULL, created_at)
-[ ] src/lib/agent.ts : buildSystemPrompt (traits + 3 derniers checkins
-    + dernier diagnostic résumé), prompt caching activé
-[ ] Server fn chatTurn(sessionId, message) :
-    safety.preCheck → buildContext → callClaude → safety.postCheck → persist
-[ ] Mode non-streaming pour la 1ère version (réponse complète d'un coup,
-    UI affiche un état "Marge écrit…" pendant l'attente)
-[ ] Route /chat avec UI minimaliste (input + bulles, historique,
-    bouton "Nouvelle conversation")
-[ ] Comptes authentifiés UNIQUEMENT (anon redirigé /auth?next=/chat)
-[ ] Gating premium : free 5 msg/jour, premium 50/mois (compteur visible)
-[ ] System prompt strict : jamais posture thérapeutique, jamais diagnostic
-[ ] Events : chat_opened, chat_message_sent, chat_session_ended,
-    chat_quota_blocked
+[x] Nouvelle table chat_sessions (id, user_id, started_at, ended_at,
+    summary, tokens_used, message_count). Index partiel pour active
+    sessions (WHERE ended_at IS NULL). RLS : own only sur les 4 ops.
+[x] Nouvelle table chat_messages (id, session_id, role, content,
+    tokens_in, tokens_out, safety_flag NULL, created_at). RLS via
+    indirection (session ownership) sur SELECT/INSERT/DELETE.
+[x] src/lib/agent.ts :
+    - buildSystemPrompt(ctx) : limites strictes (pas de thérapie, pas
+      de diagnostic), style (phrases courtes, tutoiement, 2-4 phrases),
+      contexte utilisateur (display_name, fragility, intensity_avg,
+      most_common_need/blocker, recent_state_labels, last_diagnostic_
+      summary slice 600c), tone tuning selon fragility
+    - resolveAuthCaller(token) : valide JWT + détecte is_anonymous
+    - getQuotaState(caller) : free 5/24h glissants, premium 50/30j
+      glissants, comptés via ai_usage WHERE fn='chatTurn'
+    - buildUserContext(caller) : pull profile + traits + 3 last
+      checkins + last diagnostic synthesis profile_summary
+    - ensureSession / loadHistory (HISTORY_LIMIT=14) / persistMessage
+      / bumpSessionStats helpers
+    - callChat(apiKey, systemPrompt, history, msg) : Claude haiku
+      max_tokens=600, format messages Anthropic
+    - chatTurn server fn pipeline complet :
+        1. resolveAuthCaller (UNAUTHORIZED si pas de token)
+        2. is_anonymous → throw REAL_ACCOUNT_REQUIRED
+        3. ensureSession
+        4. safety.preCheck sur user message + log si !none
+        5. URGENT → block IA, persist user + safety reply, return
+        6. quota check → throw CHAT_QUOTA_EXCEEDED si dépassé
+        7. buildContext + loadHistory en parallèle
+        8. callChat (catch → AI_UNAVAILABLE)
+        9. safety.postCheck sur la reply (defense in depth)
+        10. persistMessage (user + assistant) + bumpSessionStats
+        11. ai_usage insert (fire-and-forget)
+        12. Return {session_id, reply, safety_flag, show_resources,
+            blocked, quota}
+    - getChatQuota server fn : pour affichage UI sans envoyer un msg
+[x] Mode non-streaming. UI affiche bulle pending "..." pendant
+    l'attente. Streaming reporté V2.3.5+.
+[x] Route /chat :
+    - Comptes réels UNIQUEMENT. Anon → window.location.assign(
+      "/auth?next=/chat") (soft redirect)
+    - Charge active session (ended_at IS NULL, plus récente) + history
+    - Empty state avec 3 suggestions cliquables
+    - Bulles : user (primary, droite), assistant (background, gauche)
+    - safety_flag urgent/elevated → bordure primary/40 + bg primary/5
+    - <EmergencyResourcesInline> affiché si show_resources
+    - Errors gérés : ai_unavailable, generic, CHAT_QUOTA_EXCEEDED →
+      <PaywallCard feature="chat_full"> pour free, message simple
+      pour premium
+    - Quota counter dans le header (X / Y / jour|mois) + barre de
+      progression sous le textarea
+    - "Nouvelle conversation" : update ended_at sur l'ancienne, reset UI
+    - Enter pour envoyer, Shift+Enter pour newline
+    - Footer mention non-médicale + lien /aide
+[x] Comptes authentifiés UNIQUEMENT (chat real-account-only)
+[x] Gating premium : free 5 msg/jour, premium 50/mois (compteur visible)
+[x] System prompt strict : jamais posture thérapeutique, jamais diagnostic,
+    redirection 15/3114/SOS Amitié si crise détectée
+[x] CTA "Démarrer une conversation" actif sur landing
+[x] Onboarding gère ?next=/chat (route après l'onboarding)
+[x] /home : icône MessageCircle dans header (non-anon) + carte
+    "Parler à Marge" dans aside (non-anon)
+[x] Events : chat_opened, chat_message_sent (avec safety_flag +
+    blocked), chat_session_ended
+[x] tsc --noEmit propre, build prod réussi (worker = 742.00 KB)
+
+DÉCISIONS DESIGN DOCUMENTÉES :
+  - Quota counté via ai_usage (insert fire-and-forget par chatTurn)
+    — pas de table dédiée. Sliding window 24h free / 30j premium.
+  - Safety pre-check avant Claude → économise ~600 tokens si urgent.
+  - Safety post-check sur la reply → defense in depth contre dérive
+    du modèle (peu probable mais sécurise).
+  - Reply max 600 tokens (chat = court par design).
+  - History limit 14 (≈7 échanges) pour le contexte Claude.
+  - Tone du system prompt adapté au fragility_estimate.
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -650,8 +708,8 @@ V2.2   Diagnostic + bilan hebdo + perso     ✅ DÉPLOYÉ (commit c0f66e2)
 V2.3   Audit stratégique complet            ✅ FAIT (2026-05-03)
 V2.3.0 Curation library + entitlements      ✅ LIVRÉ
 V2.3.1 Quota IA + cap diagnostic            ✅ LIVRÉ
-V2.3.2 Safety layer                         ✅ LIVRÉ (gate de validation requis)
-V2.3.3 Chat IA "Parler à Marge"             ⏳ après V2.3.2
+V2.3.2 Safety layer                         ✅ LIVRÉ
+V2.3.3 Chat IA "Parler à Marge"             ✅ LIVRÉ (gate de validation requis)
 V2.3.4 Stripe + entitlements live           ⏳ après V2.3.3
 V2.3.5 Polish & instrumentation finale      ⏳ après V2.3.4
 V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
@@ -726,6 +784,13 @@ V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
               <EmergencyResources> + route /aide. Liens "Aide d'urgence"
               dans landing/pricing/about/settings. Pas encore branché
               au chat (qui n'existe pas).
+  2026-05-03  V2.3.3 livré : chat_sessions + chat_messages + agent.ts
+              (chatTurn server fn avec safety pre/post-check, quota
+              free 5/jour premium 50/30j via ai_usage, history limit 14,
+              context personnalisé) + route /chat (UI bulles, quota
+              counter, EmergencyResourcesInline si déclenchement, paywall
+              si quota free dépassé). Comptes réels uniquement, anon
+              redirigé vers /auth. CTA "Parler à Marge" actif sur landing.
   2026-05-03  Décisions produit figées par humain :
               - Pricing avec lifetime €79.99 (en plus mo + an)
               - Trial 7 jours

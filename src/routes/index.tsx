@@ -48,7 +48,14 @@ function Welcome() {
   const handleStart = async (intent: "checkin" | "diagnostic" | "chat" = "checkin") => {
     setStarting(true);
     track("landing_cta_clicked", { intent });
-    const destination = intent === "diagnostic" ? "/diagnostic" : "/home";
+    // Map intent to a post-onboarding destination. Chat is real-account-only,
+    // so for anon users we route via /chat which will hard-redirect to
+    // /auth?next=/chat. This keeps the intent stable across the onboarding
+    // hand-off and the eventual signup conversion.
+    const destination =
+      intent === "diagnostic" ? "/diagnostic"
+      : intent === "chat" ? "/chat"
+      : "/home";
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -61,6 +68,7 @@ function Welcome() {
         // Otherwise, they need onboarding first and we hand off via ?next=.
         if (data) {
           if (destination === "/diagnostic") navigate({ to: "/diagnostic" });
+          else if (destination === "/chat") navigate({ to: "/chat" });
           else navigate({ to: "/home" });
         } else {
           navigate({ to: "/onboarding", search: { next: destination } });
@@ -204,7 +212,8 @@ function Welcome() {
             badge="Conversation"
             title="Parler à Marge"
             description="Une discussion guidée pour reformuler, comprendre, ou trouver l'action minuscule qui débloque le reste."
-            cta={{ label: "Bientôt disponible", disabled: true }}
+            cta={{ label: "Démarrer une conversation", onClick: () => handleStart("chat") }}
+            available
           />
         </div>
       </section>

@@ -100,9 +100,9 @@ function Onboarding() {
       notifications: !!notif,
       next: nextPath ?? "/home",
     });
-    // Hand off to the originally-intended destination (e.g. /diagnostic), or
-    // default to /home for the standard "go check in" flow.
+    // Hand off to the originally-intended destination, or default to /home.
     if (nextPath === "/diagnostic") navigate({ to: "/diagnostic" });
+    else if (nextPath === "/chat") navigate({ to: "/chat" });
     else navigate({ to: "/home" });
   };
 

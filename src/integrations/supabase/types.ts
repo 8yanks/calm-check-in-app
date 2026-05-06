@@ -134,6 +134,83 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          safety_flag: string | null
+          session_id: string
+          tokens_in: number
+          tokens_out: number
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          safety_flag?: string | null
+          session_id: string
+          tokens_in?: number
+          tokens_out?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          safety_flag?: string | null
+          session_id?: string
+          tokens_in?: number
+          tokens_out?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          message_count: number
+          started_at: string
+          summary: string | null
+          tokens_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          message_count?: number
+          started_at?: string
+          summary?: string | null
+          tokens_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          message_count?: number
+          started_at?: string
+          summary?: string | null
+          tokens_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       checkins: {
         Row: {
           blocker: string
