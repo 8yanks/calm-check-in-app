@@ -120,13 +120,19 @@ function SettingsPage() {
 
       <Section title="Compte">
         {email ? (
-          <div className="marge-card p-5 flex items-center justify-between">
-            <div>
-              <div className="text-sm">Connecté</div>
-              <div className="text-xs text-muted-foreground">{email}</div>
+          <>
+            <div className="marge-card p-5 flex items-center justify-between">
+              <div>
+                <div className="text-sm">Connecté</div>
+                <div className="text-xs text-muted-foreground">{email}</div>
+              </div>
+              <button onClick={signOut} className="text-sm text-muted-foreground hover:text-foreground">Déconnexion</button>
             </div>
-            <button onClick={signOut} className="text-sm text-muted-foreground hover:text-foreground">Déconnexion</button>
-          </div>
+            <Link to="/account/billing" className="mt-3 marge-card p-5 block hover:border-primary transition">
+              <div className="text-sm">Mon abonnement</div>
+              <div className="mt-1 text-xs text-muted-foreground">Voir mon plan, gérer le paiement, ou annuler.</div>
+            </Link>
+          </>
         ) : (
           <Link to="/auth" className="marge-card p-5 block hover:border-primary">
             <div className="text-sm">Sauvegarder mes points</div>

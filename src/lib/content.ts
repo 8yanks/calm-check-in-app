@@ -42,11 +42,21 @@ export type ContentFilter = {
   tier?: ContentTier | null; // restrict to free or premium only; null = both
 };
 
+export interface ListContentsResult {
+  items: ContentItem[];
+  /** Surfaced to the UI when the underlying Supabase call fails. Null on success. */
+  error: { message: string; code?: string } | null;
+}
+
 /**
  * Fetch published content items, optionally filtered by category, duration
  * bucket, or state (state_match overlap). Sorted by category then duration.
+ *
+ * Returns a discriminated result so the caller can render a real error
+ * banner instead of an indistinguishable "Aucun contenu" empty state when
+ * the network / RLS / project-mismatch goes wrong.
  */
-export async function listContents(filter: ContentFilter = {}): Promise<ContentItem[]> {
+export async function listContentsResult(filter: ContentFilter = {}): Promise<ListContentsResult> {
   let q = supabase
     .from("content_items")
     .select("*")
@@ -66,10 +76,22 @@ export async function listContents(filter: ContentFilter = {}): Promise<ContentI
   // Order: free first (so curated free content leads), then by category/duration
   const { data, error } = await q.order("tier").order("category").order("duration_min");
   if (error) {
-    console.error("listContents error:", error);
-    return [];
+    console.error("[content] listContents error:", error);
+    return {
+      items: [],
+      error: { message: error.message, code: error.code },
+    };
   }
-  return data ?? [];
+  return { items: data ?? [], error: null };
+}
+
+/**
+ * Backwards-compat thin wrapper. New callers should use listContentsResult
+ * to surface real errors instead of mixing them with empty filters.
+ */
+export async function listContents(filter: ContentFilter = {}): Promise<ContentItem[]> {
+  const { items } = await listContentsResult(filter);
+  return items;
 }
 
 /** Fetch a single content item by slug. Returns null if not found / unpublished. */

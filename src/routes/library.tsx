@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeWordmark } from "@/components/Logo";
 import {
-  listContents,
+  listContentsResult,
   CATEGORIES,
   DURATION_BUCKETS,
   type ContentItem,
@@ -31,6 +31,7 @@ export const Route = createFileRoute("/library")({
 function Library() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<{ message: string; code?: string } | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [bucket, setBucket] = useState<DurationBucket | null>(null);
   const { entitlement } = useEntitlements();
@@ -38,8 +39,10 @@ function Library() {
 
   useEffect(() => {
     setLoading(true);
-    listContents({ category, bucket }).then((rows) => {
-      setItems(rows);
+    setFetchError(null);
+    listContentsResult({ category, bucket }).then(({ items, error }) => {
+      setItems(items);
+      setFetchError(error);
       setLoading(false);
     });
   }, [category, bucket]);
@@ -96,6 +99,19 @@ function Library() {
       <section className="mt-12 lg:mt-16">
         {loading ? (
           <div className="py-16 text-center text-sm text-muted-foreground">Chargement…</div>
+        ) : fetchError ? (
+          <div className="py-16 text-center max-w-xl mx-auto">
+            <p className="text-foreground/80 font-display text-lg">
+              La bibliothèque est inaccessible pour l'instant.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+              {fetchError.message}
+              {fetchError.code ? ` (${fetchError.code})` : ""}
+            </p>
+            <p className="mt-4 text-xs text-muted-foreground italic">
+              Tu peux réessayer dans un instant.
+            </p>
+          </div>
         ) : items.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-foreground/70">Aucun contenu ne correspond à ce filtre.</p>

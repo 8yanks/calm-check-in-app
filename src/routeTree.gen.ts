@@ -25,6 +25,8 @@ import { Route as AideRouteImport } from './routes/aide'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as LibrarySlugRouteImport } from './routes/library.$slug'
+import { Route as AccountBillingRouteImport } from './routes/account.billing'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api.stripe.webhook'
 
 const WeekRoute = WeekRouteImport.update({
   id: '/week',
@@ -106,6 +108,16 @@ const LibrarySlugRoute = LibrarySlugRouteImport.update({
   path: '/$slug',
   getParentRoute: () => LibraryRoute,
 } as any)
+const AccountBillingRoute = AccountBillingRouteImport.update({
+  id: '/account/billing',
+  path: '/account/billing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe/webhook',
+  path: '/api/stripe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -123,7 +135,9 @@ export interface FileRoutesByFullPath {
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/account/billing': typeof AccountBillingRoute
   '/library/$slug': typeof LibrarySlugRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,7 +155,9 @@ export interface FileRoutesByTo {
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/account/billing': typeof AccountBillingRoute
   '/library/$slug': typeof LibrarySlugRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,7 +176,9 @@ export interface FileRoutesById {
   '/result': typeof ResultRoute
   '/settings': typeof SettingsRoute
   '/week': typeof WeekRoute
+  '/account/billing': typeof AccountBillingRoute
   '/library/$slug': typeof LibrarySlugRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,7 +198,9 @@ export interface FileRouteTypes {
     | '/result'
     | '/settings'
     | '/week'
+    | '/account/billing'
     | '/library/$slug'
+    | '/api/stripe/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,7 +218,9 @@ export interface FileRouteTypes {
     | '/result'
     | '/settings'
     | '/week'
+    | '/account/billing'
     | '/library/$slug'
+    | '/api/stripe/webhook'
   id:
     | '__root__'
     | '/'
@@ -216,7 +238,9 @@ export interface FileRouteTypes {
     | '/result'
     | '/settings'
     | '/week'
+    | '/account/billing'
     | '/library/$slug'
+    | '/api/stripe/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -235,6 +259,8 @@ export interface RootRouteChildren {
   ResultRoute: typeof ResultRoute
   SettingsRoute: typeof SettingsRoute
   WeekRoute: typeof WeekRoute
+  AccountBillingRoute: typeof AccountBillingRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -351,6 +377,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibrarySlugRouteImport
       parentRoute: typeof LibraryRoute
     }
+    '/account/billing': {
+      id: '/account/billing'
+      path: '/account/billing'
+      fullPath: '/account/billing'
+      preLoaderRoute: typeof AccountBillingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stripe/webhook': {
+      id: '/api/stripe/webhook'
+      path: '/api/stripe/webhook'
+      fullPath: '/api/stripe/webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -381,6 +421,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResultRoute: ResultRoute,
   SettingsRoute: SettingsRoute,
   WeekRoute: WeekRoute,
+  AccountBillingRoute: AccountBillingRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

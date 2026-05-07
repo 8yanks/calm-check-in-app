@@ -1,6 +1,6 @@
 ═══════════════════════════════════════════════════════════════════════
 MARGE — CHECKLIST DÉPLOIEMENT FINAL + ROADMAP V2
-État au 2026-05-03 · post V2.3.3 livré
+État au 2026-05-07 · post V2.3.4 (code, configuration manuelle requise)
 ═══════════════════════════════════════════════════════════════════════
 
 LÉGENDE :
@@ -503,8 +503,12 @@ DÉCISIONS DESIGN DOCUMENTÉES :
 
 
 ═══════════════════════════════════════════════════════════════════════
-💳 V2.3.4 — STRIPE + ENTITLEMENTS LIVE
+💳 V2.3.4 — STRIPE + ENTITLEMENTS LIVE  ✅ CODE LIVRÉ
 ═══════════════════════════════════════════════════════════════════════
+
+⚠️ CONFIGURATION MANUELLE REQUISE (côté humain) — voir checklist plus bas.
+Le code est prêt mais auto-désactivé tant que les env vars Stripe ne sont
+pas configurées sur CF Pages. Aucun risque de régression sur la prod.
 
 PRICING (figé) :
   - Free
@@ -513,32 +517,120 @@ PRICING (figé) :
   - €79.99 lifetime (paiement unique, présenté comme accès à vie au
     plan Marge Plus actuel ; futures features infra-heavy excludables)
 
-[ ] Trial 7 jours d'accès complet à la 1ère souscription (figé)
-[ ] Server route /api/stripe/webhook (vérifie signature, idempotent)
-[ ] src/lib/stripe.ts (helpers checkout + portal)
-[ ] Webhook gère 2 chemins :
+CODE LIVRÉ :
+[x] Trial 7 jours d'accès complet à la 1ère souscription (configuré
+    automatiquement dans subscription_data.trial_period_days)
+[x] Server route /api/stripe/webhook :
+    - api.stripe.webhook.tsx avec server.handlers.POST
+    - vérifie la signature Stripe (rejet 400 sinon)
+    - idempotent via stripe_events (claim → process → unclaim si fail
+      pour permettre les retry Stripe)
+[x] src/lib/stripe.ts :
+    - getStripe() lazy singleton
+    - isStripeConfigured() / getStripeMode() (live|test|null)
+    - getOrCreateCustomer (réutilise existing par stripe_customer_id)
+    - createCheckoutSessionUrl (mode subscription OU payment selon plan)
+    - createBillingPortalUrl
+    - verifyWebhookEvent
+    - PaidPlan = 'monthly' | 'annual' | 'lifetime'
+    - getPriceIdForPlan (lit STRIPE_PRICE_MONTHLY/ANNUAL/LIFETIME env)
+    - getCheckoutModeForPlan (lifetime → 'payment', sinon 'subscription')
+[x] src/lib/subscriptions.ts :
+    - claimStripeEvent (INSERT idempotent dans stripe_events)
+    - processStripeEvent (router events → fromStripeSubscription /
+      fromLifetimeCheckout, upsert subscriptions par user_id)
+    - resolveUserId (metadata marge_user_id OU lookup par stripe_customer_id)
+    - mapStripeStatus (Stripe status → notre enum)
+    - current_period_end lu depuis items.data[0] (API dahlia) avec
+      fallback sur top-level (API antérieures)
+    - getStripeCustomerId / persistStripeCustomerId (lookup helpers)
+    - service_role client (bypass RLS pour writes du webhook)
+[x] src/lib/stripe-server-fns.ts :
+    - getStripeStatus server fn (status, mode, available_plans pour /pricing)
+    - createCheckoutSession server fn (validation auth real-account
+      + origin allowlist + customer reuse + checkout session URL)
+    - createBillingPortalSession server fn (validation + portal URL)
+    - codes d'erreur stables : STRIPE_NOT_CONFIGURED, UNAUTHORIZED,
+      REAL_ACCOUNT_REQUIRED, EMAIL_REQUIRED, ORIGIN_NOT_ALLOWED,
+      NO_STRIPE_CUSTOMER
+[x] Webhook gère 2 chemins :
     - customer.subscription.* (mensuel + annuel) → mode='subscription'
-    - checkout.session.completed avec mode='payment' (lifetime)
-[ ] Schéma subscriptions adapté lifetime :
-    - plan = 'monthly' | 'annual' | 'lifetime'
-    - subscription_id NULL pour lifetime
-    - current_period_end NULL pour lifetime
-    - purchased_at pour lifetime
-    - status = 'active' permanent pour lifetime
-[ ] Webhook → upsert subscriptions + user_entitlements (service_role only)
-[ ] Page /pricing (annual-first, lifetime comme option secondaire,
-    copy claire sur le périmètre lifetime, sans countdown anxiogène)
-[ ] Page /account/billing (cancel via Stripe Customer Portal pour les
-    abonnements ; lifetime affiché comme "non résiliable")
-[ ] Tous les hasFeature() frontend = cosmétiques uniquement
-[ ] Le vrai gating se fait dans les server functions via requireFeature()
-[ ] Démarrer en TEST MODE Stripe, basculer live quand validé
-[ ] Tests : checkout test mode subscription → webhook → entitlements MAJ
-[ ] Tests : checkout test mode lifetime (one-time payment) → entitlements
-    plan_active permanent
-[ ] Tests : cancel subscription → expiration à period_end
-[ ] Tests : trial 7j → charge → renew
-[ ] Webhook idempotent via stripe_events table (PK = event id)
+    - checkout.session.completed avec mode='payment' (lifetime) →
+      stripe_subscription_id NULL + purchased_at SET + status='active'
+[x] Page /pricing :
+    - getStripeStatus appelé au mount, CTAs auto-activés si configured
+    - CTA "Bientôt disponible" si Stripe pas encore configuré
+    - "Acheter à vie" / "Choisir Mensuel" / "Choisir Annuel" sinon
+    - subscription_checkout_started event tracké
+    - Errors UI : STRIPE_NOT_CONFIGURED, EMAIL_REQUIRED, generic
+[x] Page /account/billing :
+    - Charge subscription row (RLS-protected SELECT)
+    - Affiche plan label + statut détaillé (trialing avec date, past_due,
+      canceled, renouvelle/se termine)
+    - Bouton "Gérer mon abonnement" → Customer Portal Stripe
+    - Lifetime affiché comme "non résiliable"
+    - Auto-poll subscription après ?status=success (pour attendre webhook)
+    - URL search ?status=success|canceled affiche bandeau approprié
+[x] Lien "Mon abonnement" ajouté à /settings → /account/billing
+[x] Tous les hasFeature() frontend = cosmétiques uniquement
+[x] Le vrai gating se fait dans les server functions via requireFeature()
+    (V2.3.0 entitlements.ts) — déjà branché côté server fns Stripe
+[x] Webhook idempotent via stripe_events table (PK = event id) — V2.3.0
+[x] tsc --noEmit propre, build prod réussi (worker = 742.62 KB)
+
+═══════════════════════════════════════════════════════════════════════
+🔧 V2.3.4 — CONFIGURATION MANUELLE REQUISE (à faire par toi)
+═══════════════════════════════════════════════════════════════════════
+
+[ ] Stripe Dashboard → créer 3 Products + Prices :
+       - Marge Plus mensuel : recurring 7.99 EUR/mois → noter Price ID
+       - Marge Plus annuel  : recurring 59.99 EUR/an → noter Price ID
+       - Marge Plus à vie   : one-time 79.99 EUR → noter Price ID
+[ ] Stripe Dashboard → Webhooks → Add endpoint :
+       URL  = https://marge-app.pages.dev/api/stripe/webhook
+       Events à écouter (cocher) :
+         - customer.subscription.created
+         - customer.subscription.updated
+         - customer.subscription.deleted
+         - customer.subscription.paused
+         - customer.subscription.resumed
+         - customer.subscription.trial_will_end
+         - checkout.session.completed
+         - invoice.paid              (informational, déjà géré)
+         - invoice.payment_failed    (informational, déjà géré)
+       → noter le "Signing secret" (whsec_…)
+[ ] Stripe Dashboard → Customer Portal → activer + configurer :
+       - Allow customers to cancel
+       - Allow customers to update payment method
+       - Allow customers to view invoice history
+       - Branding (Marge logo, couleurs)
+[ ] CF Pages → Settings → Variables and Secrets → Add :
+       STRIPE_SECRET_KEY         = sk_test_…  (test mode pour démarrer)
+       STRIPE_WEBHOOK_SECRET     = whsec_…    (signing secret)
+       STRIPE_PRICE_MONTHLY      = price_…    (Price ID mensuel)
+       STRIPE_PRICE_ANNUAL       = price_…    (Price ID annuel)
+       STRIPE_PRICE_LIFETIME     = price_…    (Price ID lifetime)
+       SUPABASE_SERVICE_ROLE_KEY = eyJ…       (NOUVEAU — requis par
+                                              le webhook pour bypass RLS)
+[ ] Trigger un redeploy CF Pages (push vide ou bouton "Retry deployment")
+[ ] Tests E2E test mode :
+       - /pricing → CTAs activés (vérifier "Choisir Mensuel" au lieu de
+         "Bientôt disponible")
+       - Click "Choisir Mensuel" → Stripe Checkout s'ouvre
+       - Compléter avec carte de test 4242 4242 4242 4242 → redirect
+         /account/billing?status=success
+       - Vérifier dans Supabase : subscriptions.plan='monthly',
+         status='trialing', trial_end set, stripe_customer_id set
+       - /account/billing → "Gérer mon abonnement" → Customer Portal
+       - Cancel from portal → vérifier cancel_at_period_end=true
+       - Tester aussi annual + lifetime (idéalement avec compte test
+         différent)
+[ ] Quand stable en test mode → bascule live :
+       - remplacer sk_test_… par sk_live_…
+       - remplacer les Price IDs par les live Price IDs
+       - remplacer le webhook signing secret par celui du webhook live
+       - reconfigurer le Customer Portal en live (peut-être déjà fait)
+       - redeploy
 
 
 ═══════════════════════════════════════════════════════════════════════
@@ -709,8 +801,8 @@ V2.3   Audit stratégique complet            ✅ FAIT (2026-05-03)
 V2.3.0 Curation library + entitlements      ✅ LIVRÉ
 V2.3.1 Quota IA + cap diagnostic            ✅ LIVRÉ
 V2.3.2 Safety layer                         ✅ LIVRÉ
-V2.3.3 Chat IA "Parler à Marge"             ✅ LIVRÉ (gate de validation requis)
-V2.3.4 Stripe + entitlements live           ⏳ après V2.3.3
+V2.3.3 Chat IA "Parler à Marge"             ✅ LIVRÉ
+V2.3.4 Stripe + entitlements live           ✅ CODE LIVRÉ (config manuelle requise)
 V2.3.5 Polish & instrumentation finale      ⏳ après V2.3.4
 V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
 
@@ -791,6 +883,18 @@ V2.4+  Gamification (si signaux rétention)  ⏸️  REPORTÉ
               counter, EmergencyResourcesInline si déclenchement, paywall
               si quota free dépassé). Comptes réels uniquement, anon
               redirigé vers /auth. CTA "Parler à Marge" actif sur landing.
+  2026-05-07  Library fix défensif : listContentsResult expose les erreurs
+              Supabase à l'UI (bandeau d'erreur explicite au lieu de
+              "Aucun contenu") pour débloquer le diag du bug prod.
+  2026-05-07  V2.3.4 CODE livré : stripe SDK + lib/stripe.ts +
+              lib/subscriptions.ts + lib/stripe-server-fns.ts (3 server
+              fns) + webhook /api/stripe/webhook + page /account/billing
+              + activation auto des CTAs /pricing quand Stripe configuré.
+              Configuration manuelle restante : 5 env vars CF Pages
+              (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, 3 PRICE IDs +
+              SUPABASE_SERVICE_ROLE_KEY) + setup Stripe Dashboard
+              (Products, Webhook, Customer Portal). Voir checklist V2.3.4
+              ci-dessus.
   2026-05-03  Décisions produit figées par humain :
               - Pricing avec lifetime €79.99 (en plus mo + an)
               - Trial 7 jours

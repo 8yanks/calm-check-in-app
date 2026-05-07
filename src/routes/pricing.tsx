@@ -1,19 +1,26 @@
-// /pricing — public pricing page (V2.3.0).
+// /pricing — public pricing page.
 //
-// V2.3.0 ships the page as a vitrine: pricing decisions are baked in, copy is
-// final, but checkout CTAs are intentionally NOT live yet. They become
-// functional in V2.3.4 when the Stripe integration lands. This avoids both
-// dead-code in the meantime AND last-minute UX surprises when the buttons
-// do start working.
+// V2.3.0 shipped this as a vitrine. V2.3.4 makes the CTAs go live AS SOON
+// AS Stripe is configured on the server. The page polls getStripeStatus()
+// once on mount; if Stripe is configured AND a price id is set for the
+// plan, the CTA opens a real Stripe Checkout session. Otherwise the CTA
+// stays disabled with "Bientôt disponible". This means deploying V2.3.4
+// to prod doesn't suddenly activate billing — the user controls activation
+// via env vars.
 
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { WideShell } from "@/components/PageShell";
 import { MargeMark, MargeWordmark } from "@/components/Logo";
 import { PRICING } from "@/lib/entitlements";
 import { useEntitlements } from "@/hooks/use-entitlements";
 import { track } from "@/lib/analytics";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  createCheckoutSession,
+  getStripeStatus,
+  type StripeStatus,
+} from "@/lib/stripe-server-fns";
 
 export const Route = createFileRoute("/pricing")({
   head: () => ({
@@ -33,21 +40,65 @@ function Pricing() {
   const navigate = useNavigate();
   const { entitlement, loading } = useEntitlements();
   const isAlreadyPremium = entitlement?.active === true;
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     track("pricing_viewed", {});
+    // Probe Stripe configuration so we know whether to enable the CTAs.
+    // Errors here are non-fatal — we just leave CTAs disabled.
+    getStripeStatus().then(setStripeStatus).catch(() => setStripeStatus({
+      configured: false, mode: null, available_plans: [],
+    }));
   }, []);
 
-  const handlePlanCta = (plan: "monthly" | "annual" | "lifetime") => {
+  const isPlanAvailable = (plan: "monthly" | "annual" | "lifetime"): boolean =>
+    !!stripeStatus?.configured && stripeStatus.available_plans.includes(plan);
+
+  const handlePlanCta = async (plan: "monthly" | "annual" | "lifetime") => {
     track("paywall_cta_clicked", { feature: "checkout", trigger: "pricing", plan });
-    // V2.3.4 will open Stripe Checkout here. For now we surface a calm message
-    // and route the user to /auth if they're anonymous (so the checkout has
-    // a stable user_id once it's live).
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session && typeof window !== "undefined") {
-        window.location.assign("/auth?next=/pricing");
+    setCheckoutError(null);
+
+    // Anon users → /auth first so checkout has a stable user_id
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session && typeof window !== "undefined") {
+      window.location.assign("/auth?next=/pricing");
+      return;
+    }
+
+    // Stripe not configured → silently no-op (CTA shouldn't have been clickable)
+    if (!isPlanAvailable(plan)) return;
+
+    if (!session) return;
+    setCheckoutPlan(plan);
+    track("subscription_checkout_started", { plan });
+    try {
+      const { url } = await createCheckoutSession({
+        data: {
+          plan,
+          access_token: session.access_token,
+          origin: typeof window !== "undefined" ? window.location.origin : "",
+        },
+      });
+      if (typeof window !== "undefined") window.location.href = url;
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code
+        ?? (err instanceof Error ? err.message : "");
+      if (code === "REAL_ACCOUNT_REQUIRED") {
+        if (typeof window !== "undefined") window.location.assign("/auth?next=/pricing");
+        return;
       }
-    });
+      if (code === "STRIPE_NOT_CONFIGURED") {
+        setCheckoutError("Le paiement n'est pas encore activé. Reviens dans quelques jours.");
+      } else if (code === "EMAIL_REQUIRED") {
+        setCheckoutError("Une adresse email est requise pour Stripe. Vérifie ton compte.");
+      } else {
+        console.error("[pricing] checkout failed:", err);
+        setCheckoutError("Quelque chose s'est mal passé. Tu peux réessayer.");
+      }
+      setCheckoutPlan(null);
+    }
   };
 
   return (
@@ -113,7 +164,13 @@ function Pricing() {
               "Bilan hebdo IA détaillé",
               "Chat “Parler à Marge” (50 msg/mois)",
             ]}
-            cta={{ label: "Bientôt disponible", onClick: () => handlePlanCta("monthly"), disabled: true }}
+            cta={{
+              label: checkoutPlan === "monthly"
+                ? "Ouverture…"
+                : isPlanAvailable("monthly") ? "Choisir Mensuel" : "Bientôt disponible",
+              onClick: () => handlePlanCta("monthly"),
+              disabled: !isPlanAvailable("monthly") || checkoutPlan !== null || isAlreadyPremium,
+            }}
             footnote={`Essai ${PRICING.trial_days} jours sur la première souscription`}
           />
 
@@ -127,11 +184,21 @@ function Pricing() {
               "Économie significative",
               "Continuité sans frais cachés",
             ]}
-            cta={{ label: "Bientôt disponible", onClick: () => handlePlanCta("annual"), disabled: true }}
+            cta={{
+              label: checkoutPlan === "annual"
+                ? "Ouverture…"
+                : isPlanAvailable("annual") ? "Choisir Annuel" : "Bientôt disponible",
+              onClick: () => handlePlanCta("annual"),
+              disabled: !isPlanAvailable("annual") || checkoutPlan !== null || isAlreadyPremium,
+            }}
             footnote={`Essai ${PRICING.trial_days} jours sur la première souscription`}
             highlight
           />
         </div>
+
+        {checkoutError && (
+          <p className="mt-6 text-sm text-destructive max-w-2xl">{checkoutError}</p>
+        )}
 
         {/* Lifetime plan — secondary, presented honestly */}
         <div className="mt-10 max-w-5xl">
@@ -151,10 +218,16 @@ function Pricing() {
             <div className="lg:col-span-5 lg:text-right">
               <button
                 onClick={() => handlePlanCta("lifetime")}
-                disabled
-                className="inline-flex items-center justify-center rounded-full border border-border bg-surface px-6 py-3 text-sm text-muted-foreground cursor-not-allowed"
+                disabled={!isPlanAvailable("lifetime") || checkoutPlan !== null || isAlreadyPremium}
+                className={`inline-flex items-center justify-center rounded-full px-6 py-3 text-sm transition ${
+                  isPlanAvailable("lifetime") && !isAlreadyPremium
+                    ? "bg-primary text-primary-foreground hover:opacity-90 cursor-pointer"
+                    : "border border-border bg-surface text-muted-foreground cursor-not-allowed"
+                }`}
               >
-                Bientôt disponible
+                {checkoutPlan === "lifetime"
+                  ? "Ouverture…"
+                  : isPlanAvailable("lifetime") ? "Acheter à vie" : "Bientôt disponible"}
               </button>
             </div>
           </div>
