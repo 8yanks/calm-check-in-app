@@ -159,14 +159,22 @@ function ChatPage() {
       setMessages(prev => prev.filter(m => m.id !== tempAsstId));
       const code = (err as { code?: string; message?: string })?.code
         || (err instanceof Error ? err.message : "");
+      // Always log with the resolved code prominently — makes prod
+      // debugging trivial via the user's DevTools console.
+      console.error(`[chat] send failed — code="${code}"`, err);
       if (code === "CHAT_QUOTA_EXCEEDED") {
         setErrorBanner("quota");
       } else if (code === "REAL_ACCOUNT_REQUIRED") {
         if (typeof window !== "undefined") window.location.assign("/auth?next=/chat");
+      } else if (code === "UNAUTHORIZED") {
+        if (typeof window !== "undefined") window.location.assign("/auth?next=/chat");
+      } else if (code === "AI_KEY_MISSING") {
+        setErrorBanner("not_configured");
       } else if (code === "AI_UNAVAILABLE") {
         setErrorBanner("ai_unavailable");
+      } else if (code === "MESSAGE_EMPTY") {
+        // Silently no-op (UI shouldn't allow this anyway)
       } else {
-        console.error("[chat] send failed:", err);
         setErrorBanner("generic");
       }
     } finally {
@@ -306,6 +314,15 @@ function ChatPage() {
       {errorBanner === "ai_unavailable" && (
         <section className="mt-6 max-w-2xl mx-auto marge-card p-4 text-sm text-foreground/80 leading-relaxed">
           Marge n'a pas pu te répondre cette fois. Tu peux réessayer dans un instant.
+        </section>
+      )}
+      {errorBanner === "not_configured" && (
+        <section className="mt-6 max-w-2xl mx-auto marge-card p-5 border-primary/30">
+          <div className="text-[11px] uppercase tracking-wider text-primary">Configuration en cours</div>
+          <p className="mt-2 text-sm text-foreground/80 leading-relaxed">
+            Le chat IA n'est pas encore pleinement activé sur cette instance.
+            Reviens dans quelques jours, ou écris-moi pour me dire que tu attendais.
+          </p>
         </section>
       )}
       {errorBanner === "generic" && (

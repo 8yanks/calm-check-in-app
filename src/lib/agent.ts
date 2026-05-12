@@ -382,7 +382,11 @@ export const chatTurn = createServerFn({ method: "POST" })
     if (!data.message?.trim()) throw new Error("MESSAGE_EMPTY");
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+    if (!apiKey) {
+      const err = new Error("AI_KEY_MISSING") as Error & { code?: string };
+      err.code = "AI_KEY_MISSING";
+      throw err;
+    }
 
     const caller = await resolveAuthCaller(data.access_token);
     if (!caller) {
