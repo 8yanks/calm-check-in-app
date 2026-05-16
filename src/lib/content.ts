@@ -42,10 +42,30 @@ export type ContentFilter = {
   tier?: ContentTier | null; // restrict to free or premium only; null = both
 };
 
+export type ContentFetchErrorKind = "network_blocked" | "timeout" | "supabase_error";
+
 export interface ListContentsResult {
   items: ContentItem[];
   /** Surfaced to the UI when the underlying Supabase call fails. Null on success. */
-  error: { message: string; code?: string } | null;
+  error: { kind: ContentFetchErrorKind; message: string; code?: string } | null;
+}
+
+/** Hard upper-bound on a single fetch — anything beyond is treated as network failure. */
+const LIBRARY_FETCH_TIMEOUT_MS = 8000;
+
+/**
+ * Race a promise against a timeout. Rejects with a typed marker so the caller
+ * can distinguish "Supabase took forever" (user's network blocking, ISP
+ * dropping packets, project asleep) from "Supabase returned an error".
+ */
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const id = setTimeout(() => reject(new Error("LIBRARY_TIMEOUT")), ms);
+    p.then(
+      (v) => { clearTimeout(id); resolve(v); },
+      (e) => { clearTimeout(id); reject(e); },
+    );
+  });
 }
 
 /**
@@ -55,6 +75,11 @@ export interface ListContentsResult {
  * Returns a discriminated result so the caller can render a real error
  * banner instead of an indistinguishable "Aucun contenu" empty state when
  * the network / RLS / project-mismatch goes wrong.
+ *
+ * Resilience: bounded by an 8s timeout. Also catches network-level errors
+ * (typically "Failed to fetch" when the user's browser blocks supabase.co
+ * via an extension / DNS / firewall) so the UI can render an actionable
+ * message instead of spinning forever.
  */
 export async function listContentsResult(filter: ContentFilter = {}): Promise<ListContentsResult> {
   let q = supabase
@@ -74,15 +99,50 @@ export async function listContentsResult(filter: ContentFilter = {}): Promise<Li
   }
 
   // Order: free first (so curated free content leads), then by category/duration
-  const { data, error } = await q.order("tier").order("category").order("duration_min");
-  if (error) {
-    console.error("[content] listContents error:", error);
+  const promise = q.order("tier").order("category").order("duration_min");
+
+  try {
+    const { data, error } = await withTimeout(promise as unknown as Promise<{
+      data: ContentItem[] | null;
+      error: { message: string; code?: string } | null;
+    }>, LIBRARY_FETCH_TIMEOUT_MS);
+    if (error) {
+      console.error("[content] listContents error:", error);
+      return {
+        items: [],
+        error: { kind: "supabase_error", message: error.message, code: error.code },
+      };
+    }
+    return { items: data ?? [], error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[content] listContents rejected:", msg);
+    if (msg === "LIBRARY_TIMEOUT") {
+      return {
+        items: [],
+        error: {
+          kind: "timeout",
+          message:
+            "Marge n'a pas pu charger la bibliothèque dans le temps imparti. " +
+            "Ta connexion est peut-être lente, ou un bloqueur empêche l'accès à Supabase.",
+        },
+      };
+    }
+    // Network-level failure (e.g. "Failed to fetch", DNS, blocked domain).
+    // We surface a calm, actionable message — no "réessayer" if the cause
+    // is a hard block (the retry wouldn't help).
     return {
       items: [],
-      error: { message: error.message, code: error.code },
+      error: {
+        kind: "network_blocked",
+        message:
+          "Marge n'a pas pu joindre Supabase. Une extension de blocage " +
+          "(uBlock Origin, AdGuard, Privacy Badger…), un firewall réseau " +
+          "ou un DNS filtré bloquent peut-être supabase.co. " +
+          "Essaie de désactiver tes extensions ou utilise un autre navigateur.",
+      },
     };
   }
-  return { items: data ?? [], error: null };
 }
 
 /**

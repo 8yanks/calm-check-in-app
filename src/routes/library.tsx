@@ -31,7 +31,11 @@ export const Route = createFileRoute("/library")({
 function Library() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<{ message: string; code?: string } | null>(null);
+  const [fetchError, setFetchError] = useState<{
+    kind: "network_blocked" | "timeout" | "supabase_error";
+    message: string;
+    code?: string;
+  } | null>(null);
   const [category, setCategory] = useState<Category | null>(null);
   const [bucket, setBucket] = useState<DurationBucket | null>(null);
   const { entitlement } = useEntitlements();
@@ -102,15 +106,24 @@ function Library() {
         ) : fetchError ? (
           <div className="py-16 text-center max-w-xl mx-auto">
             <p className="text-foreground/80 font-display text-lg">
-              La bibliothèque est inaccessible pour l'instant.
+              {fetchError.kind === "network_blocked"
+                ? "Connexion à Marge bloquée."
+                : fetchError.kind === "timeout"
+                ? "Connexion trop lente."
+                : "La bibliothèque est inaccessible pour l'instant."}
             </p>
             <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
               {fetchError.message}
               {fetchError.code ? ` (${fetchError.code})` : ""}
             </p>
-            <p className="mt-4 text-xs text-muted-foreground italic">
-              Tu peux réessayer dans un instant.
-            </p>
+            {fetchError.kind !== "network_blocked" && (
+              <button
+                onClick={() => { setCategory(null); setBucket(null); }}
+                className="mt-5 text-sm text-primary hover:opacity-80"
+              >
+                Réessayer
+              </button>
+            )}
           </div>
         ) : items.length === 0 ? (
           <div className="py-16 text-center">
